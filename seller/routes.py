@@ -1,6 +1,6 @@
 from flask import render_template, redirect, url_for, session, request, abort, jsonify, flash, send_file
 from flask import current_app as app, g
-from shared.utils import login_required, seller_required, get_db, log_error
+from shared.utils import login_required, seller_required, log_error
 from shared.components import render_chart_data
 from . import seller_bp
 from datetime import datetime, timedelta
@@ -10,12 +10,15 @@ import io
 import json
 import os
 
+# Firebase imports
+from firebase_db import seller_service, get_user_service, get_product_service, get_order_service, review_service, transaction_service, withdrawal_service
+from google.cloud import firestore
+
 # ==================== HELPER FUNCTIONS ====================
 
 def get_seller_id(user_id):
     """Get seller ID from user ID"""
-    db = get_db()
-    seller = db.execute('SELECT id FROM sellers WHERE user_id = ?', (user_id,)).fetchone()
+    seller = seller_service.get_by_user_id(user_id)
     return seller['id'] if seller else None
 
 # ==================== ROUTES ====================
@@ -25,10 +28,9 @@ def get_seller_id(user_id):
 def setup_profile():
     """Seller profile setup for new sellers"""
     user = session.get('user')
-    db = get_db()
 
     # Check if seller profile already exists
-    existing_seller = db.execute('SELECT * FROM sellers WHERE user_id = ?', (user['id'],)).fetchone()
+    existing_seller = seller_service.get_by_user_id(user['id'])
 
     if request.method == 'POST':
         name = request.form.get('name')
@@ -43,32 +45,41 @@ def setup_profile():
         try:
             if existing_seller:
                 # Update existing profile
-                db.execute("""
-                    UPDATE sellers SET name = ?, handle = ?, location = ?, bio = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE user_id = ?
-                """, (name, handle, location, bio, user['id']))
+                seller_service.update(existing_seller['id'], {
+                    'name': name,
+                    'handle': handle,
+                    'location': location,
+                    'bio': bio
+                })
             else:
                 # Create new seller profile
                 profile_initial = name[0].upper() if name else 'S'
-                db.execute("""
-                    INSERT INTO sellers (user_id, name, handle, profile_initial, location, bio)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (user['id'], name, handle, profile_initial, location, bio))
+                seller_service.create({
+                    'user_id': user['id'],
+                    'name': name,
+                    'handle': handle,
+                    'profile_initial': profile_initial,
+                    'location': location,
+                    'bio': bio,
+                    'is_verified': False,
+                    'avg_rating': 0.0,
+                    'total_reviews': 0,
+                    'total_sales': 0
+                })
 
                 # Update user type to seller
-                db.execute('UPDATE users SET user_type = "seller" WHERE id = ?', (user['id'],))
+                user_service = get_user_service()
+                user_service.update(user['id'], {'user_type': 'seller'})
                 session['user']['user_type'] = 'seller'
 
-            db.commit()
             flash('Seller profile created successfully!', 'success')
             return redirect(url_for('seller.seller_dashboard'))
 
         except Exception as e:
-            db.rollback()
             log_error(f"Seller Setup Error: {e}", user_id=user['id'])
             flash('Error creating seller profile. Handle may already be taken.', 'error')
 
-    return render_template('seller_setup.html', existing_seller=dict(existing_seller) if existing_seller else None)
+    return render_template('seller_setup.html', existing_seller=existing_seller)
 
 @seller_bp.route('/dashboard')
 @login_required
@@ -76,126 +87,114 @@ def setup_profile():
 def seller_dashboard():
     """Main Seller Dashboard - Comprehensive Overview"""
     user = session.get('user')
-    db = get_db()
 
-    # Get seller ID by user_id
-    seller_id = user['id']
-
-    # Fetch seller data, including rating and verification status
-    seller_data = db.execute('SELECT * FROM sellers WHERE user_id = ?', (seller_id,)).fetchone()
+    # Get seller profile
+    seller_data = seller_service.get_by_user_id(user['id'])
 
     # Handle case where seller profile doesn't exist yet
     if not seller_data:
         flash('Please complete your seller profile setup.', 'warning')
         return redirect(url_for('seller.setup_profile'))
 
-    # Get actual seller ID
     actual_seller_id = seller_data['id']
 
     # ====== DASHBOARD STATISTICS ======
+    # Get all orders for this seller to compute statistics
+    from google.cloud.firestore_v1.base_query import FieldFilter
+    order_service = get_order_service()
+
+    all_orders = order_service.get_seller_orders(actual_seller_id)
 
     # Total Sales (completed transactions)
-    total_sales = db.execute("""
-        SELECT COALESCE(SUM(seller_amount), 0) as total
-        FROM transactions
-        WHERE seller_id = ? AND status IN ('COMPLETED', 'DELIVERED')
-    """, (actual_seller_id,)).fetchone()['total']
+    total_sales = sum(
+        order.get('seller_amount', 0)
+        for order in all_orders
+        if order.get('status') in ['COMPLETED', 'DELIVERED']
+    )
 
     # Pending Orders Count
-    pending_orders_count = db.execute("""
-        SELECT COUNT(*) as count
-        FROM transactions
-        WHERE seller_id = ? AND status IN ('PENDING', 'CONFIRMED')
-    """, (actual_seller_id,)).fetchone()['count']
+    pending_orders_count = sum(
+        1 for order in all_orders
+        if order.get('status') in ['PENDING', 'CONFIRMED']
+    )
 
     # Active Products Count
-    active_products_count = db.execute("""
-        SELECT COUNT(*) as count
-        FROM products
-        WHERE seller_id = ? AND is_active = 1
-    """, (actual_seller_id,)).fetchone()['count']
+    product_service = get_product_service()
+    products = product_service.get_seller_products(actual_seller_id)
+    active_products_count = sum(1 for p in products if p.get('is_active', True))
 
     # Wallet Balance
-    wallet_balance = seller_data['balance']
+    wallet_balance = seller_data.get('balance', 0)
 
     # Followers and Likes
-    followers_count = seller_data['follower_count']
-    likes_count = seller_data['likes_count']
+    followers_count = seller_data.get('follower_count', 0)
+    likes_count = seller_data.get('likes_count', 0)
 
     # ====== PENDING ORDERS ======
-    pending_orders = db.execute("""
-        SELECT t.*, u.email as buyer_email
-        FROM transactions t
-        JOIN users u ON t.user_id = u.id
-        WHERE t.seller_id = ? AND t.status IN ('PENDING', 'CONFIRMED', 'READY_FOR_PICKUP')
-        ORDER BY t.timestamp DESC
-        LIMIT 10
-    """, (actual_seller_id,)).fetchall()
-
-    # ====== PRODUCTS ======
-    products = db.execute("""
-        SELECT * FROM products
-        WHERE seller_id = ?
-        ORDER BY created_at DESC
-    """, (actual_seller_id,)).fetchall()
+    pending_orders = [
+        order for order in all_orders
+        if order.get('status') in ['PENDING', 'CONFIRMED', 'READY_FOR_PICKUP']
+    ]
+    # Sort by timestamp and limit to 10
+    pending_orders.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+    pending_orders = pending_orders[:10]
 
     # ====== VIDEOS ======
-    videos = db.execute("""
-        SELECT * FROM videos
-        WHERE seller_id = ?
-        ORDER BY
-            CASE video_type
-                WHEN 'intro' THEN 1
-                WHEN 'detailed' THEN 2
-                WHEN 'conclusion' THEN 3
-            END
-    """, (actual_seller_id,)).fetchall()
+    from firebase_db import video_service
+    videos = video_service.get_seller_videos(actual_seller_id)
 
     # ====== RECENT TRANSACTIONS (for earnings history) ======
-    recent_transactions = db.execute("""
-        SELECT t.*, u.email as buyer_email
-        FROM transactions t
-        JOIN users u ON t.user_id = u.id
-        WHERE t.seller_id = ?
-        ORDER BY t.timestamp DESC
-        LIMIT 20
-    """, (actual_seller_id,)).fetchall()
+    recent_transactions = all_orders[:20]  # Already sorted by date in get_seller_orders
 
     # ====== ANALYTICS DATA ======
     # Sales over last 7 days
-    last_7_days_sales = db.execute("""
-        SELECT DATE(timestamp) as date, SUM(seller_amount) as daily_total
-        FROM transactions
-        WHERE seller_id = ? AND status IN ('COMPLETED', 'DELIVERED')
-        AND timestamp >= date('now', '-7 days')
-        GROUP BY DATE(timestamp)
-        ORDER BY date ASC
-    """, (actual_seller_id,)).fetchall()
+    from datetime import datetime, timedelta
+    today = datetime.now()
+    seven_days_ago = today - timedelta(days=7)
 
-    # Most Popular Products
-    popular_products = db.execute("""
-        SELECT p.name, SUM(ti.quantity) as sales_count, SUM(ti.total_price) as revenue
-        FROM transaction_items ti
-        JOIN products p ON ti.product_id = p.id
-        JOIN transactions t ON ti.transaction_id = t.id
-        WHERE p.seller_id = ? AND t.status IN ('COMPLETED', 'DELIVERED')
-        GROUP BY p.id
-        ORDER BY sales_count DESC
-        LIMIT 5
-    """, (actual_seller_id,)).fetchall()
+    # Filter and group orders by date
+    daily_sales = {}
+    for order in all_orders:
+        if order.get('status') in ['COMPLETED', 'DELIVERED']:
+            order_date = order.get('created_at')
+            if order_date and hasattr(order_date, 'date'):
+                date_str = order_date.date().isoformat()
+                if order_date >= seven_days_ago:
+                    daily_sales[date_str] = daily_sales.get(date_str, 0) + order.get('seller_amount', 0)
+
+    last_7_days_sales = [
+        {'date': date, 'daily_total': total}
+        for date, total in sorted(daily_sales.items())
+    ]
+
+    # Most Popular Products - Aggregate from transaction items
+    product_stats = {}
+    for order in all_orders:
+        if order.get('status') in ['COMPLETED', 'DELIVERED']:
+            items = order.get('items', [])
+            for item in items:
+                product_id = item.get('product_id')
+                if product_id:
+                    if product_id not in product_stats:
+                        product_stats[product_id] = {
+                            'name': item.get('product_name', 'Unknown'),
+                            'sales_count': 0,
+                            'revenue': 0
+                        }
+                    product_stats[product_id]['sales_count'] += item.get('quantity', 0)
+                    product_stats[product_id]['revenue'] += item.get('total_price', 0)
+
+    popular_products = sorted(
+        product_stats.values(),
+        key=lambda x: x['sales_count'],
+        reverse=True
+    )[:5]
 
     # ====== REVIEWS ======
-    recent_reviews = db.execute("""
-        SELECT r.*, u.email as buyer_email
-        FROM reviews r
-        JOIN users u ON r.user_id = u.id
-        WHERE r.seller_id = ?
-        ORDER BY r.created_at DESC
-        LIMIT 5
-    """, (actual_seller_id,)).fetchall()
+    recent_reviews = review_service.get_seller_reviews(actual_seller_id, limit=5)
 
     return render_template('seller_dashboard.html',
-                           seller=dict(seller_data),
+                           seller=seller_data,
                            stats={
                                'total_sales': total_sales,
                                'pending_orders': pending_orders_count,
@@ -204,13 +203,13 @@ def seller_dashboard():
                                'followers': followers_count,
                                'likes': likes_count
                            },
-                           pending_orders=[dict(o) for o in pending_orders],
-                           products=[dict(p) for p in products],
-                           videos=[dict(v) for v in videos],
-                           recent_transactions=[dict(t) for t in recent_transactions],
-                           last_7_days_sales=[dict(s) for s in last_7_days_sales],
-                           popular_products=[dict(p) for p in popular_products],
-                           recent_reviews=[dict(r) for r in recent_reviews])
+                           pending_orders=pending_orders,
+                           products=products,
+                           videos=videos,
+                           recent_transactions=recent_transactions,
+                           last_7_days_sales=last_7_days_sales,
+                           popular_products=popular_products,
+                           recent_reviews=recent_reviews)
 
 @seller_bp.route('/products', methods=['GET', 'POST'])
 @login_required
@@ -218,10 +217,9 @@ def seller_dashboard():
 def manage_products():
     """Product CRUD (Create/Read/Update/Delete)"""
     user = session.get('user')
-    db = get_db()
 
     # Get seller ID from sellers table
-    seller = db.execute('SELECT id FROM sellers WHERE user_id = ?', (user['id'],)).fetchone()
+    seller = seller_service.get_by_user_id(user['id'])
     if not seller:
         flash('Seller profile not found. Please complete setup.', 'danger')
         return redirect(url_for('seller.setup_profile'))
@@ -238,21 +236,32 @@ def manage_products():
         # moderation_utils.flag_content(user['id'], description)
 
         try:
-            db.execute("""
-                INSERT INTO products (seller_id, name, description, price)
-                VALUES (?, ?, ?, ?)
-            """, (seller_id, name, description, price))
-            db.commit()
+            product_service = get_product_service()
+            product_service.create({
+                'seller_id': seller_id,
+                'seller': {
+                    'name': seller.get('name', ''),
+                    'email': user.get('email', ''),
+                    'handle': seller.get('handle', '')
+                },
+                'name': name,
+                'description': description,
+                'price_zar': price,
+                'is_active': True,
+                'stock_count': 0,
+                'category': 'General'
+            })
             flash('Product added successfully!', 'success')
             return redirect(url_for('seller.manage_products'))
         except Exception as e:
-            db.rollback()
             log_error(f"Seller Product Creation Error: {e}", traceback=str(e.__traceback__), user_id=user['id'])
             flash('Error adding product.', 'danger')
 
-    products = db.execute('SELECT * FROM products WHERE seller_id = ? ORDER BY created_at DESC', (seller_id,)).fetchall()
+    # Get all products for this seller
+    product_service = get_product_service()
+    products = product_service.get_seller_products(seller_id)
 
-    return render_template('seller_products.html', products=[dict(p) for p in products])
+    return render_template('seller_products.html', products=products)
 
 @seller_bp.route('/orders')
 @login_required
@@ -260,7 +269,6 @@ def manage_products():
 def manage_orders():
     """View and Confirm incoming orders"""
     user = session.get('user')
-    db = get_db()
 
     seller_id = get_seller_id(user['id'])
     if not seller_id:
@@ -268,55 +276,66 @@ def manage_orders():
         return redirect(url_for('seller.setup_profile'))
 
     # Fetch orders awaiting seller action
-    orders = db.execute("""
-        SELECT t.*, u.email as buyer_email
-        FROM transactions t
-        JOIN users u ON t.user_id = u.id
-        WHERE t.seller_id = ? AND t.status IN ('PENDING', 'CONFIRMED', 'READY_FOR_PICKUP')
-        ORDER BY t.timestamp DESC
-    """, (seller_id,)).fetchall()
+    order_service = get_order_service()
+    all_orders = order_service.get_seller_orders(seller_id)
 
-    return render_template('seller_orders.html', orders=[dict(o) for o in orders])
+    # Filter for pending, confirmed, and ready for pickup
+    orders = [
+        order for order in all_orders
+        if order.get('status') in ['PENDING', 'CONFIRMED', 'READY_FOR_PICKUP']
+    ]
 
-@seller_bp.route('/order/<int:order_id>/confirm', methods=['POST'])
+    # Sort by created_at descending
+    orders.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+
+    return render_template('seller_orders.html', orders=orders)
+
+@seller_bp.route('/order/<order_id>/confirm', methods=['POST'])
 @login_required
 @seller_required
 def confirm_order(order_id):
     """Seller confirms a PENDING order"""
     user = session.get('user')
-    db = get_db()
 
     seller_id = get_seller_id(user['id'])
     if not seller_id:
         return jsonify({'success': False, 'message': 'Seller profile not found.'}), 403
 
-    result = db.execute("""
-        UPDATE transactions SET status = 'CONFIRMED', updated_at = CURRENT_TIMESTAMP
-        WHERE id = ? AND seller_id = ? AND status = 'PENDING'
-    """, (order_id, seller_id)).rowcount
+    order_service = get_order_service()
+    order = order_service.get(order_id)
 
-    if result:
+    if not order or order.get('seller_id') != seller_id or order.get('status') != 'PENDING':
+        return jsonify({'success': False, 'message': 'Order not found or already confirmed.'}), 400
+
+    try:
+        # Update order status
+        order_service.update_order_status(order_id, 'CONFIRMED', updated_by=user['id'])
+
         # Add tracking update
-        db.execute("""
-            INSERT INTO delivery_tracking (transaction_id, status, notes, created_by)
-            VALUES (?, 'CONFIRMED', 'Seller confirmed order', ?)
-        """, (order_id, user['id']))
-
-        db.commit()
+        from firebase_db import delivery_tracking_service
+        delivery_tracking_service.create({
+            'transaction_id': order_id,
+            'status': 'CONFIRMED',
+            'notes': 'Seller confirmed order',
+            'created_by': user['id']
+        })
 
         # Create notification for buyer
-        transaction = db.execute('SELECT user_id FROM transactions WHERE id = ?', (order_id,)).fetchone()
-        if transaction:
-            db.execute("""
-                INSERT INTO notifications (user_id, title, message, notification_type, related_id)
-                VALUES (?, 'Order Confirmed', 'Your order has been confirmed by the seller', 'order', ?)
-            """, (transaction['user_id'], order_id))
-            db.commit()
+        notification_service = get_notification_service()
+        notification_service.create_notification(
+            user_id=order.get('user_id'),
+            title='Order Confirmed',
+            message='Your order has been confirmed by the seller',
+            type='order',
+            data={'order_id': order_id}
+        )
 
         flash('Order confirmed successfully!', 'success')
         return jsonify({'success': True, 'message': 'Order confirmed and preparation started.'})
 
-    return jsonify({'success': False, 'message': 'Order not found or already confirmed.'}), 400
+    except Exception as e:
+        log_error(f"Order confirmation error: {e}", user_id=user['id'])
+        return jsonify({'success': False, 'message': 'Error confirming order.'}), 500
 
 
 @seller_bp.route('/order/<int:order_id>/ready', methods=['POST'])

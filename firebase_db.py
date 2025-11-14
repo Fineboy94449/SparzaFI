@@ -296,11 +296,187 @@ class WithdrawalService:
         return True
 
 
+class VideoService:
+    """Video operations"""
+
+    def __init__(self):
+        self.db = get_firestore_db()
+        self.collection = self.db.collection('videos')
+
+    def create(self, data, doc_id=None):
+        """Create a video"""
+        import uuid
+        if doc_id is None:
+            doc_id = str(uuid.uuid4())
+
+        data['created_at'] = firestore.SERVER_TIMESTAMP
+        data['updated_at'] = firestore.SERVER_TIMESTAMP
+
+        self.collection.document(doc_id).set(data)
+        return doc_id
+
+    def get(self, video_id):
+        """Get video by ID"""
+        doc = self.collection.document(video_id).get()
+        if doc.exists:
+            return {**doc.to_dict(), 'id': doc.id}
+        return None
+
+    def get_seller_videos(self, seller_id):
+        """Get videos for a seller ordered by video type"""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        query = self.collection.where(filter=FieldFilter('seller_id', '==', seller_id))
+        query = query.where(filter=FieldFilter('is_active', '==', True))
+
+        docs = query.stream()
+        videos = [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+
+        # Sort by video type (intro, detailed, conclusion)
+        video_type_order = {'intro': 1, 'detailed': 2, 'conclusion': 3}
+        videos.sort(key=lambda v: video_type_order.get(v.get('video_type', 'detailed'), 2))
+
+        return videos
+
+    def increment_likes(self, video_id):
+        """Increment video likes count"""
+        self.collection.document(video_id).update({
+            'likes_count': firestore.Increment(1)
+        })
+
+    def decrement_likes(self, video_id):
+        """Decrement video likes count"""
+        self.collection.document(video_id).update({
+            'likes_count': firestore.Increment(-1)
+        })
+
+
+class FollowService:
+    """Follow/unfollow operations"""
+
+    def __init__(self):
+        self.db = get_firestore_db()
+        self.collection = self.db.collection('follows')
+
+    def follow(self, user_id, seller_id):
+        """Follow a seller"""
+        doc_id = f"{user_id}_{seller_id}"
+        self.collection.document(doc_id).set({
+            'user_id': user_id,
+            'seller_id': seller_id,
+            'created_at': firestore.SERVER_TIMESTAMP
+        })
+        return True
+
+    def unfollow(self, user_id, seller_id):
+        """Unfollow a seller"""
+        doc_id = f"{user_id}_{seller_id}"
+        self.collection.document(doc_id).delete()
+        return True
+
+    def is_following(self, user_id, seller_id):
+        """Check if user is following seller"""
+        doc_id = f"{user_id}_{seller_id}"
+        doc = self.collection.document(doc_id).get()
+        return doc.exists
+
+    def get_user_follows(self, user_id):
+        """Get all sellers that user follows"""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        query = self.collection.where(filter=FieldFilter('user_id', '==', user_id))
+        docs = query.stream()
+        return [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+
+
+class LikeService:
+    """Like operations for sellers and videos"""
+
+    def __init__(self):
+        self.db = get_firestore_db()
+        self.seller_likes = self.db.collection('seller_likes')
+        self.video_likes = self.db.collection('video_likes')
+
+    def like_seller(self, user_id, seller_id):
+        """Like a seller"""
+        doc_id = f"{user_id}_{seller_id}"
+        self.seller_likes.document(doc_id).set({
+            'user_id': user_id,
+            'seller_id': seller_id,
+            'created_at': firestore.SERVER_TIMESTAMP
+        })
+        return True
+
+    def unlike_seller(self, user_id, seller_id):
+        """Unlike a seller"""
+        doc_id = f"{user_id}_{seller_id}"
+        self.seller_likes.document(doc_id).delete()
+        return True
+
+    def is_seller_liked(self, user_id, seller_id):
+        """Check if user has liked seller"""
+        doc_id = f"{user_id}_{seller_id}"
+        doc = self.seller_likes.document(doc_id).get()
+        return doc.exists
+
+    def like_video(self, user_id, video_id):
+        """Like a video"""
+        doc_id = f"{user_id}_{video_id}"
+        self.video_likes.document(doc_id).set({
+            'user_id': user_id,
+            'video_id': video_id,
+            'created_at': firestore.SERVER_TIMESTAMP
+        })
+        return True
+
+    def unlike_video(self, user_id, video_id):
+        """Unlike a video"""
+        doc_id = f"{user_id}_{video_id}"
+        self.video_likes.document(doc_id).delete()
+        return True
+
+    def is_video_liked(self, user_id, video_id):
+        """Check if user has liked video"""
+        doc_id = f"{user_id}_{video_id}"
+        doc = self.video_likes.document(doc_id).get()
+        return doc.exists
+
+
+class DeliveryTrackingService:
+    """Delivery tracking operations"""
+
+    def __init__(self):
+        self.db = get_firestore_db()
+        self.collection = self.db.collection('delivery_tracking')
+
+    def create(self, data, doc_id=None):
+        """Create a tracking event"""
+        import uuid
+        if doc_id is None:
+            doc_id = str(uuid.uuid4())
+
+        data['created_at'] = firestore.SERVER_TIMESTAMP
+
+        self.collection.document(doc_id).set(data)
+        return doc_id
+
+    def get_transaction_tracking(self, transaction_id):
+        """Get all tracking events for a transaction"""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        query = self.collection.where(filter=FieldFilter('transaction_id', '==', transaction_id))
+        query = query.order_by('created_at')
+
+        docs = query.stream()
+        return [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+
+
 # Create service instances
 seller_service = SellerService()
 review_service = ReviewService()
 transaction_service = TransactionService()
 withdrawal_service = WithdrawalService()
+video_service = VideoService()
+follow_service = FollowService()
+like_service = LikeService()
+delivery_tracking_service = DeliveryTrackingService()
 
 
 # Export all services
@@ -318,4 +494,8 @@ __all__ = [
     'review_service',
     'transaction_service',
     'withdrawal_service',
+    'video_service',
+    'follow_service',
+    'like_service',
+    'delivery_tracking_service',
 ]

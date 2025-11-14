@@ -27,7 +27,17 @@
       "Bash(npm --version:*)",
       "Bash(npm install:*)",
       "Bash(npx localtunnel:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(pip install:*)",
+      "Bash(source venv/bin/activate)",
+      "Bash(git pull:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(export FIREBASE_SERVICE_ACCOUNT=/home/fineboy94449/Documents/SparzaFI/firebase-service-account.json)",
+      "Bash(python migrate_to_firebase.py:*)",
+      "Bash(python migrate_sparzafi_to_firebase.py:*)",
+      "Bash(timeout 5 flask run:*)"
     ],
     "deny": [],
     "ask": []

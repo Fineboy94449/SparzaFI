@@ -12,10 +12,7 @@ Flask-Babel==4.0.0
 Flask-CORS==4.0.0
 Flask-Limiter==3.5.0
 
-# Database
-sqlite3  # Built-in with Python
-
-# Firebase
+# Database - Firebase (Cloud Firestore)
 firebase-admin==6.4.0  # Firebase Admin SDK for backend operations
 google-cloud-firestore==2.14.0  # Firestore database
 google-cloud-storage==2.14.0  # Firebase Storage
