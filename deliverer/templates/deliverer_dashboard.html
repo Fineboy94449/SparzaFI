@@ -1,0 +1,1245 @@
+{% extends "base.html" %}
+
+{% block title %}Deliverer Dashboard - SparzaFI{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+    /* Profile Card */
+    .profile-card {
+        background: var(--card-bg);
+        border-radius: var(--radius);
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border-color);
+    }
+
+    .profile-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .profile-title {
+        font-size: 1.75rem;
+        font-weight: 600;
+        color: var(--accent-color);
+    }
+
+    .profile-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .profile-stat {
+        text-align: center;
+    }
+
+    .profile-stat-label {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.5rem;
+    }
+
+    .profile-stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .rating {
+        color: #f59e0b;
+    }
+
+    /* Section Card */
+    .section-card {
+        background: var(--card-bg);
+        border-radius: var(--radius);
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border-color);
+    }
+
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--accent-color);
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    /* Table Styles */
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .data-table thead th {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        color: var(--text-secondary);
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    .data-table tbody td {
+        padding: 1rem;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .data-table tbody tr:hover {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    /* Status Badges */
+    .status-badge {
+        display: inline-block;
+        padding: 0.375rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .status-ready {
+        background: rgba(34, 197, 94, 0.2);
+        color: #22c55e;
+    }
+
+    .status-picked-up {
+        background: rgba(59, 130, 246, 0.2);
+        color: #3b82f6;
+    }
+
+    .status-in-transit {
+        background: rgba(249, 115, 22, 0.2);
+        color: #f97316;
+    }
+
+    /* Action Button */
+    .action-btn {
+        background: var(--accent-color);
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: var(--transition);
+        text-decoration: none;
+        display: inline-block;
+        font-size: 0.875rem;
+    }
+
+    .action-btn:hover {
+        background: var(--accent-hover);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(255, 122, 24, 0.4);
+    }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: var(--text-secondary);
+    }
+
+    .empty-state-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+
+    /* Analytics Section */
+    .analytics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .chart-container {
+        background: var(--card-bg);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border-color);
+    }
+
+    .chart-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--accent-color);
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+
+    /* Route Optimization */
+    .route-card {
+        background: rgba(255, 122, 24, 0.05);
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-left: 4px solid var(--accent-color);
+    }
+
+    .route-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .route-badge {
+        background: var(--accent-color);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 15px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .route-stops {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        margin-top: 0.5rem;
+    }
+
+    /* Verification Modal */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(5px);
+    }
+
+    .modal-content {
+        background: var(--card-bg);
+        margin: 10% auto;
+        padding: 2rem;
+        border: 2px solid var(--accent-color);
+        border-radius: var(--radius);
+        width: 90%;
+        max-width: 500px;
+        box-shadow: var(--shadow-heavy);
+    }
+
+    .close {
+        color: var(--accent-color);
+        float: right;
+        font-size: 2rem;
+        font-weight: bold;
+        cursor: pointer;
+        line-height: 1;
+    }
+
+    .close:hover {
+        color: var(--text-primary);
+    }
+
+    .modal-title {
+        color: var(--accent-color);
+        font-size: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .code-input {
+        width: 100%;
+        padding: 1rem;
+        font-size: 1.25rem;
+        text-align: center;
+        background: var(--input-bg);
+        border: 2px solid var(--border-color);
+        border-radius: 10px;
+        color: var(--text-primary);
+        letter-spacing: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .code-input:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        box-shadow: 0 0 15px rgba(255, 122, 24, 0.3);
+    }
+
+    .verification-feedback {
+        padding: 1rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+        text-align: center;
+        font-weight: 500;
+    }
+
+    .feedback-error {
+        background: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+        border: 1px solid #ef4444;
+    }
+
+    .feedback-success {
+        background: rgba(34, 197, 94, 0.2);
+        color: #22c55e;
+        border: 1px solid #22c55e;
+    }
+
+    .verify-btn {
+        width: 100%;
+        padding: 1rem;
+        font-size: 1.125rem;
+    }
+
+    /* Availability Toggle */
+    .availability-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        cursor: pointer;
+    }
+
+    .availability-toggle input[type="checkbox"] {
+        display: none;
+    }
+
+    .toggle-slider {
+        position: relative;
+        width: 50px;
+        height: 26px;
+        background: var(--border-color);
+        border-radius: 34px;
+        transition: var(--transition);
+    }
+
+    .toggle-slider::before {
+        content: '';
+        position: absolute;
+        height: 20px;
+        width: 20px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        border-radius: 50%;
+        transition: var(--transition);
+    }
+
+    .availability-toggle input:checked + .toggle-slider {
+        background: var(--success-color);
+    }
+
+    .availability-toggle input:checked + .toggle-slider::before {
+        transform: translateX(24px);
+    }
+
+    .toggle-label {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    /* Quick Action Buttons */
+    .quick-action-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem 1rem;
+        background: rgba(255, 122, 24, 0.05);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        text-decoration: none;
+        transition: var(--transition);
+        gap: 0.5rem;
+    }
+
+    .quick-action-btn:hover {
+        background: rgba(255, 122, 24, 0.1);
+        border-color: var(--accent-color);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow);
+    }
+
+    .action-icon {
+        font-size: 2rem;
+    }
+
+    .action-text {
+        color: var(--text-primary);
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-align: center;
+    }
+
+    /* Route Pricing Cards */
+    .route-pricing-card {
+        background: rgba(255, 122, 24, 0.05);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        padding: 1rem;
+        transition: var(--transition);
+    }
+
+    .route-pricing-card:hover {
+        border-color: var(--accent-color);
+        box-shadow: var(--shadow);
+    }
+
+    .route-pricing-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .route-pricing-header strong {
+        color: var(--text-primary);
+        font-size: 1rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .profile-stats {
+            grid-template-columns: 1fr;
+        }
+
+        .data-table {
+            font-size: 0.875rem;
+        }
+
+        .data-table thead th,
+        .data-table tbody td {
+            padding: 0.75rem 0.5rem;
+        }
+
+        .profile-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Deliverer Profile -->
+<div class="profile-card">
+    <div class="profile-header">
+        <div class="profile-title">🧍‍♂️ {{ deliverer.name }}</div>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <span style="color: var(--text-secondary); font-size: 0.9rem;">Status:</span>
+            <label class="availability-toggle">
+                <input type="checkbox" id="availabilityToggle" {% if deliverer.is_available %}checked{% endif %}>
+                <span class="toggle-slider"></span>
+                <span class="toggle-label" id="availabilityLabel">{% if deliverer.is_available %}Active{% else %}Inactive{% endif %}</span>
+            </label>
+        </div>
+    </div>
+    <div class="profile-stats">
+        <div class="profile-stat">
+            <div class="profile-stat-label">Vehicle Type</div>
+            <div class="profile-stat-value">{{ deliverer.vehicle_type }}</div>
+        </div>
+        <div class="profile-stat">
+            <div class="profile-stat-label">Registration</div>
+            <div class="profile-stat-value">{{ deliverer.vehicle_registration }}</div>
+        </div>
+        <div class="profile-stat">
+            <div class="profile-stat-label">Rating</div>
+            <div class="profile-stat-value rating">⭐ {{ "%.1f"|format(deliverer.rating) }}</div>
+        </div>
+        <div class="profile-stat">
+            <div class="profile-stat-label">Total Deliveries</div>
+            <div class="profile-stat-value">{{ deliverer.total_deliveries }}</div>
+        </div>
+        <div class="profile-stat">
+            <div class="profile-stat-label">Total Earnings</div>
+            <div class="profile-stat-value">R{{ "%.2f"|format(deliverer.total_earnings or 0) }}</div>
+        </div>
+        <div class="profile-stat">
+            <div class="profile-stat-label">Pending Settlements</div>
+            <div class="profile-stat-value" style="color: var(--warning-color);">R{{ "%.2f"|format(deliverer.pending_settlements or 0) }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Performance Metrics -->
+<div class="section-card" style="margin-bottom: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h3 style="color: var(--accent-color); font-size: 1.25rem; margin: 0;">📈 Performance Metrics</h3>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1.5rem; font-weight: 700; color:
+                {% if deliverer.performance_score >= 90 %}#22c55e
+                {% elif deliverer.performance_score >= 75 %}#f59e0b
+                {% else %}#ef4444{% endif %};">
+                {{ "%.1f"|format(deliverer.performance_score) }}
+            </span>
+            <span style="color: var(--text-secondary); font-size: 0.875rem;">/100</span>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+        <!-- On-time Delivery Rate -->
+        <div style="background: rgba(34, 197, 94, 0.05); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <span style="font-size: 1.5rem;">⏱️</span>
+                <span style="color: var(--text-secondary); font-size: 0.875rem;">On-Time Rate</span>
+            </div>
+            <div style="color: #22c55e; font-size: 1.75rem; font-weight: 700;">{{ "%.1f"|format(deliverer.on_time_rate) }}%</div>
+            <div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.25rem;">
+                {% if deliverer.on_time_rate >= 95 %}Excellent!{% elif deliverer.on_time_rate >= 85 %}Good performance{% else %}Room for improvement{% endif %}
+            </div>
+        </div>
+
+        <!-- Acceptance Rate -->
+        <div style="background: rgba(59, 130, 246, 0.05); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <span style="font-size: 1.5rem;">✅</span>
+                <span style="color: var(--text-secondary); font-size: 0.875rem;">Acceptance Rate</span>
+            </div>
+            <div style="color: #3b82f6; font-size: 1.75rem; font-weight: 700;">{{ "%.1f"|format(deliverer.acceptance_rate) }}%</div>
+            <div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.25rem;">
+                {% if deliverer.acceptance_rate >= 80 %}Great availability!{% elif deliverer.acceptance_rate >= 60 %}Moderate{% else %}Consider accepting more{% endif %}
+            </div>
+        </div>
+
+        <!-- Cancellation Rate -->
+        <div style="background: rgba(249, 115, 22, 0.05); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <span style="font-size: 1.5rem;">❌</span>
+                <span style="color: var(--text-secondary); font-size: 0.875rem;">Cancellation Rate</span>
+            </div>
+            <div style="color: {% if deliverer.cancellation_rate <= 5 %}#22c55e{% elif deliverer.cancellation_rate <= 10 %}#f59e0b{% else %}#ef4444{% endif %}; font-size: 1.75rem; font-weight: 700;">{{ "%.1f"|format(deliverer.cancellation_rate) }}%</div>
+            <div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.25rem;">
+                {% if deliverer.cancellation_rate <= 5 %}Excellent reliability!{% elif deliverer.cancellation_rate <= 10 %}Acceptable{% else %}Try to reduce cancellations{% endif %}
+            </div>
+        </div>
+
+        <!-- Delivery Streak -->
+        <div style="background: rgba(168, 85, 247, 0.05); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <span style="font-size: 1.5rem;">🔥</span>
+                <span style="color: var(--text-secondary); font-size: 0.875rem;">Active Streak</span>
+            </div>
+            <div style="color: #a855f7; font-size: 1.75rem; font-weight: 700;">{{ deliverer.delivery_streak }} days</div>
+            <div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.25rem;">
+                {% if deliverer.delivery_streak >= 7 %}Amazing consistency!{% elif deliverer.delivery_streak >= 3 %}Keep it up!{% else %}Build your streak!{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Score Breakdown -->
+    <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(255, 255, 255, 0.02); border-radius: var(--radius); border: 1px solid var(--border-color);">
+        <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+            Performance Score Breakdown: (On-time 50%) + (Acceptance 30%) + (Reliability 20%)
+        </div>
+        <div style="height: 8px; background: rgba(255, 255, 255, 0.1); border-radius: 4px; overflow: hidden;">
+            <div style="height: 100%; background: linear-gradient(90deg, #22c55e, #3b82f6, #a855f7); width: {{ deliverer.performance_score }}%; transition: width 0.5s ease;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Performance-based Incentives -->
+<div class="section-card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(255, 122, 24, 0.05), rgba(168, 85, 247, 0.05));">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h3 style="color: var(--accent-color); font-size: 1.25rem; margin: 0;">🏆 Performance Incentives</h3>
+        <span style="background: var(--accent-color); color: white; padding: 0.375rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600;">ACTIVE</span>
+    </div>
+
+    <!-- Active Incentives Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+        <!-- Streak Bonus -->
+        <div style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(168, 85, 247, 0.05)); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: var(--radius); padding: 1.25rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+                <span style="font-size: 2rem;">🔥</span>
+                <div>
+                    <div style="color: var(--text-primary); font-weight: 600; font-size: 1rem;">Streak Bonus</div>
+                    <div style="color: var(--text-secondary); font-size: 0.75rem;">Earn +R5 per delivery</div>
+                </div>
+            </div>
+            <div style="margin-bottom: 0.5rem;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.875rem; margin-bottom: 0.25rem;">
+                    <span style="color: var(--text-secondary);">{{ deliverer.delivery_streak }}/7 days</span>
+                    <span style="color: #a855f7; font-weight: 600;">{% if deliverer.delivery_streak >= 7 %}Unlocked!{% else %}{{ 7 - deliverer.delivery_streak }} to go{% endif %}</span>
+                </div>
+                <div style="height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden;">
+                    <div style="height: 100%; background: linear-gradient(90deg, #a855f7, #ec4899); width: {{ (deliverer.delivery_streak / 7 * 100)|round }}%; transition: width 0.5s ease;"></div>
+                </div>
+            </div>
+            <div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.5rem;">
+                {% if deliverer.delivery_streak >= 7 %}
+                    Amazing! Keep your streak alive! 🎉
+                {% else %}
+                    Complete {{ 7 - deliverer.delivery_streak }} more days to unlock
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- High Performance Bonus -->
+        <div style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05)); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: var(--radius); padding: 1.25rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+                <span style="font-size: 2rem;">⭐</span>
+                <div>
+                    <div style="color: var(--text-primary); font-weight: 600; font-size: 1rem;">Excellence Bonus</div>
+                    <div style="color: var(--text-secondary); font-size: 0.75rem;">Earn +R50 bonus</div>
+                </div>
+            </div>
+            <div style="margin-bottom: 0.5rem;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.875rem; margin-bottom: 0.25rem;">
+                    <span style="color: var(--text-secondary);">{{ "%.1f"|format(deliverer.performance_score) }}/95.0 score</span>
+                    <span style="color: #22c55e; font-weight: 600;">{% if deliverer.performance_score >= 95 %}Unlocked!{% else %}{{ "%.1f"|format(95 - deliverer.performance_score) }} to go{% endif %}</span>
+                </div>
+                <div style="height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden;">
+                    <div style="height: 100%; background: linear-gradient(90deg, #22c55e, #10b981); width: {{ (deliverer.performance_score / 95 * 100)|round }}%; transition: width 0.5s ease;"></div>
+                </div>
+            </div>
+            <div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.5rem;">
+                {% if deliverer.performance_score >= 95 %}
+                    Outstanding performance! 🌟
+                {% else %}
+                    Maintain a 95+ performance score to unlock
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Volume Bonus -->
+        <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05)); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: var(--radius); padding: 1.25rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+                <span style="font-size: 2rem;">📦</span>
+                <div>
+                    <div style="color: var(--text-primary); font-weight: 600; font-size: 1rem;">Volume Bonus</div>
+                    <div style="color: var(--text-secondary); font-size: 0.75rem;">Earn +R100 bonus</div>
+                </div>
+            </div>
+            <div style="margin-bottom: 0.5rem;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.875rem; margin-bottom: 0.25rem;">
+                    <span style="color: var(--text-secondary);">{{ deliverer.total_deliveries }}/50 deliveries</span>
+                    <span style="color: #3b82f6; font-weight: 600;">{% if deliverer.total_deliveries >= 50 %}Unlocked!{% else %}{{ 50 - deliverer.total_deliveries }} to go{% endif %}</span>
+                </div>
+                <div style="height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden;">
+                    <div style="height: 100%; background: linear-gradient(90deg, #3b82f6, #2563eb); width: {{ (deliverer.total_deliveries / 50 * 100)|round }}%; transition: width 0.5s ease;"></div>
+                </div>
+            </div>
+            <div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.5rem;">
+                {% if deliverer.total_deliveries >= 50 %}
+                    Incredible work! You've hit 50 deliveries! 🚀
+                {% else %}
+                    Complete {{ 50 - deliverer.total_deliveries }} more deliveries this month
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Achievement Badges -->
+    <div style="border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+        <h4 style="color: var(--text-primary); font-size: 1rem; margin-bottom: 1rem;">🎖️ Recent Achievements</h4>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
+            {% if deliverer.total_deliveries >= 10 %}
+            <div style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.05); padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid var(--border-color);">
+                <span style="font-size: 1.25rem;">🥉</span>
+                <span style="color: var(--text-primary); font-size: 0.875rem; font-weight: 500;">10 Deliveries</span>
+            </div>
+            {% endif %}
+            {% if deliverer.delivery_streak >= 3 %}
+            <div style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.05); padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid var(--border-color);">
+                <span style="font-size: 1.25rem;">🔥</span>
+                <span style="color: var(--text-primary); font-size: 0.875rem; font-weight: 500;">3-Day Streak</span>
+            </div>
+            {% endif %}
+            {% if deliverer.performance_score >= 90 %}
+            <div style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.05); padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid var(--border-color);">
+                <span style="font-size: 1.25rem;">⭐</span>
+                <span style="color: var(--text-primary); font-size: 0.875rem; font-weight: 500;">Top Performer</span>
+            </div>
+            {% endif %}
+            {% if deliverer.on_time_rate >= 95 %}
+            <div style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.05); padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid var(--border-color);">
+                <span style="font-size: 1.25rem;">⏱️</span>
+                <span style="color: var(--text-primary); font-size: 0.875rem; font-weight: 500;">Punctual Pro</span>
+            </div>
+            {% endif %}
+            {% if deliverer.total_deliveries == 0 and deliverer.delivery_streak == 0 %}
+            <div style="color: var(--text-secondary); font-size: 0.875rem; padding: 0.5rem;">
+                Complete your first delivery to start earning badges! 🎯
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="section-card" style="margin-bottom: 1.5rem;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+        <a href="/deliverer/manage-routes" class="quick-action-btn">
+            <span class="action-icon">🗺️</span>
+            <span class="action-text">Manage Routes & Pricing</span>
+        </a>
+        <a href="/user/wallet" class="quick-action-btn">
+            <span class="action-icon">💰</span>
+            <span class="action-text">Earnings & Settlements</span>
+        </a>
+        <a href="/user/user_settings" class="quick-action-btn">
+            <span class="action-icon">⚙️</span>
+            <span class="action-text">Settings</span>
+        </a>
+        <a href="#" class="quick-action-btn" onclick="alert('Support feature coming soon!'); return false;">
+            <span class="action-icon">❓</span>
+            <span class="action-text">Help & Support</span>
+        </a>
+    </div>
+</div>
+
+<!-- My Routes & Pricing -->
+<div class="section-card">
+    <div class="section-title">🚗 My Routes & Pricing</div>
+    {% if deliverer.routes %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+            {% for route in deliverer.routes %}
+            <div class="route-pricing-card">
+                <div class="route-pricing-header">
+                    <strong>{{ route.route_name or route.route_no }}</strong>
+                    <span class="route-badge">{{ route.route_no }}</span>
+                </div>
+                <div style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                    <div style="margin-bottom: 0.25rem;">📍 Max Distance: {{ route.max_distance_km or 'N/A' }} km</div>
+                    <div style="margin-bottom: 0.25rem;">💵 Base Fee: R{{ "%.2f"|format(route.base_fee or 0) }}</div>
+                    <div>📏 Per KM: R{{ "%.2f"|format(route.price_per_km or 0) }}/km</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <a href="/deliverer/manage-routes" class="btn btn-primary">Manage All Routes</a>
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">🗺️</div>
+            <p>No routes configured yet</p>
+            <a href="/deliverer/manage-routes" class="btn btn-primary" style="margin-top: 1rem;">Set Up Your First Route</a>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Earnings Analytics -->
+<div class="section-card">
+    <div class="section-title">📊 Earnings & Settlements</div>
+
+    <!-- Earnings Summary Cards -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+        <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: var(--radius); padding: 1.5rem;">
+            <div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">💵 Total Earnings (All Time)</div>
+            <div style="color: #22c55e; font-size: 1.75rem; font-weight: 700;">R{{ "%.2f"|format(deliverer.total_earnings or 0) }}</div>
+        </div>
+        <div style="background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.3); border-radius: var(--radius); padding: 1.5rem;">
+            <div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">⏳ Pending Settlements</div>
+            <div style="color: #f97316; font-size: 1.75rem; font-weight: 700;">R{{ "%.2f"|format(deliverer.pending_settlements or 0) }}</div>
+            <div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.5rem;">{{ deliverer.active_deliveries|length }} deliveries in progress</div>
+        </div>
+        <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: var(--radius); padding: 1.5rem;">
+            <div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">📆 This Week</div>
+            <div style="color: #3b82f6; font-size: 1.75rem; font-weight: 700;">R{{ "%.2f"|format(deliverer.today_earnings or 0) }}</div>
+            <div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.5rem;">Average per delivery: R{{ "%.2f"|format((deliverer.today_earnings / deliverer.total_deliveries) if deliverer.total_deliveries > 0 else 0) }}</div>
+        </div>
+        <div style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: var(--radius); padding: 1.5rem;">
+            <div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">✅ Settled This Month</div>
+            <div style="color: #a855f7; font-size: 1.75rem; font-weight: 700;">R{{ "%.2f"|format((deliverer.total_earnings - deliverer.pending_settlements) or 0) }}</div>
+            <div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.5rem;">{{ deliverer.completed_deliveries|length }} completed deliveries</div>
+        </div>
+    </div>
+
+    <!-- Charts Grid -->
+    <div class="analytics-grid">
+        <div class="chart-container">
+            <div class="chart-title">Weekly Earnings Trend</div>
+            <canvas id="earningsChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <div class="chart-title">Deliveries by Status</div>
+            <canvas id="statusChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Settlement Breakdown -->
+    <div style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid var(--border-color);">
+        <h3 style="color: var(--accent-color); font-size: 1.25rem; margin-bottom: 1rem;">💰 Settlement Breakdown</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+            <!-- Completed & Paid -->
+            <div style="background: rgba(34, 197, 94, 0.05); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <span style="color: var(--text-primary); font-weight: 600;">✅ Completed & Paid</span>
+                    <span style="background: #22c55e; color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem;">{{ deliverer.completed_deliveries|length }}</span>
+                </div>
+                <div style="color: #22c55e; font-size: 1.5rem; font-weight: 700;">R{{ "%.2f"|format((deliverer.total_earnings - deliverer.pending_settlements) or 0) }}</div>
+                <div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.5rem;">Already settled to your wallet</div>
+            </div>
+
+            <!-- In Progress -->
+            <div style="background: rgba(249, 115, 22, 0.05); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <span style="color: var(--text-primary); font-weight: 600;">⏳ In Progress</span>
+                    <span style="background: #f97316; color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem;">{{ deliverer.active_deliveries|length }}</span>
+                </div>
+                <div style="color: #f97316; font-size: 1.5rem; font-weight: 700;">R{{ "%.2f"|format(deliverer.pending_settlements or 0) }}</div>
+                <div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.5rem;">Will be settled upon delivery completion</div>
+            </div>
+
+            <!-- Available to Pickup -->
+            <div style="background: rgba(59, 130, 246, 0.05); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <span style="color: var(--text-primary); font-weight: 600;">🚀 Available to Claim</span>
+                    <span style="background: #3b82f6; color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem;">{{ deliverer.available_pickups|length }}</span>
+                </div>
+                <div style="color: #3b82f6; font-size: 1.5rem; font-weight: 700;">{{ deliverer.available_pickups|length }}</div>
+                <div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.5rem;">New deliveries waiting for you</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Action Link -->
+    <div style="text-align: center; margin-top: 2rem;">
+        <a href="/user/wallet" class="action-btn" style="font-size: 1rem; padding: 0.75rem 2rem;">
+            View Full Wallet & Transaction History →
+        </a>
+    </div>
+</div>
+
+<!-- Route Optimization -->
+<div class="section-card">
+    <div class="section-title">🗺️ Optimized Route Suggestions</div>
+    <div id="routeOptimization">
+        {% if deliverer.active_deliveries %}
+            <div class="route-card">
+                <div class="route-header">
+                    <strong>Optimal Delivery Sequence</strong>
+                    <span class="route-badge">Saves ~{{ "%.1f"|format((deliverer.active_deliveries|length * 2.5)) }} km</span>
+                </div>
+                <div class="route-stops">
+                    {% for delivery in deliverer.active_deliveries %}
+                        <div style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
+                            <strong>Stop {{ loop.index }}:</strong> {{ delivery.seller_name }} → {{ delivery.buyer_address or 'Address TBD' }}
+                            <span style="color: #22c55e; margin-left: 0.5rem;">~{{ "%.1f"|format(loop.index * 1.8) }} km</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">🚫</div>
+                <p>No active deliveries to optimize</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Active Deliveries -->
+<div class="section-card">
+    <div class="section-title">📦 Active Deliveries</div>
+    {% if deliverer.active_deliveries %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Order ID</th>
+                    <th>Route Details</th>
+                    <th>Buyer</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for delivery in deliverer.active_deliveries %}
+                <tr>
+                    <td><strong>#{{ delivery.id }}</strong></td>
+                    <td>
+                        <div style="margin-bottom: 0.5rem;">
+                            <strong>{{ delivery.seller_name }}</strong>
+                        </div>
+                        <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.25rem;">
+                            📍 <strong>From:</strong> {{ delivery.seller_location }}
+                        </div>
+                        <div style="font-size: 0.875rem; color: #22c55e;">
+                            📦 <strong>To:</strong> {{ delivery.buyer_address or 'Address not specified' }}
+                        </div>
+                    </td>
+                    <td>{{ delivery.buyer_email }}</td>
+                    <td>
+                        {% if delivery.status == 'PICKED_UP' %}
+                            <span class="status-badge status-picked-up">Picked Up</span>
+                            <button class="action-btn" style="margin-top: 0.5rem;" onclick="openVerificationModal({{ delivery.id }}, 'delivery')">Verify Delivery</button>
+                        {% elif delivery.status == 'IN_TRANSIT' %}
+                            <span class="status-badge status-in-transit">In Transit</span>
+                            <button class="action-btn" style="margin-top: 0.5rem;" onclick="openVerificationModal({{ delivery.id }}, 'delivery')">Verify Delivery</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <p>No active deliveries at the moment</p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Available Pickups -->
+<div class="section-card">
+    <div class="section-title">🚀 Available Pickups</div>
+    {% if deliverer.available_pickups %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Order ID</th>
+                    <th>Seller & Locations</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pickup in deliverer.available_pickups %}
+                <tr>
+                    <td><strong>#{{ pickup.id }}</strong></td>
+                    <td>
+                        <div style="margin-bottom: 0.5rem;">
+                            <strong>{{ pickup.seller_name }}</strong>
+                        </div>
+                        <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.25rem;">
+                            📍 <strong>Pickup:</strong> {{ pickup.seller_location }}
+                        </div>
+                        <div style="font-size: 0.875rem; color: #22c55e;">
+                            📦 <strong>Delivery:</strong> {{ pickup.buyer_address or 'Address not specified' }}
+                        </div>
+                    </td>
+                    <td><strong>R{{ "%.2f"|format(pickup.total_amount) }}</strong></td>
+                    <td><span class="status-badge status-ready">Ready for Pickup</span></td>
+                    <td>
+                        <form method="POST" action="/deliverer/claim/{{ pickup.id }}" style="display: inline;">
+                            <button type="submit" class="action-btn">Claim</button>
+                        </form>
+                        <button class="action-btn" style="margin-top: 0.5rem;" onclick="openVerificationModal({{ pickup.id }}, 'pickup')">Verify Pickup</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">🔍</div>
+            <p>No available pickups in your area</p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Completed Deliveries -->
+<div class="section-card">
+    <div class="section-title">✅ Completed Deliveries (Last 10)</div>
+    {% if deliverer.completed_deliveries %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Order ID</th>
+                    <th>Seller</th>
+                    <th>Amount Earned</th>
+                    <th>Completed On</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for delivery in deliverer.completed_deliveries %}
+                <tr>
+                    <td>#{{ delivery.id }}</td>
+                    <td>{{ delivery.seller_name }}</td>
+                    <td>R{{ "%.2f"|format(delivery.deliverer_fee or 0) }}</td>
+                    <td>{{ delivery.delivered_at or 'N/A' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <p>No completed deliveries yet</p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Verification Code Modal -->
+<div id="verificationModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeVerificationModal()">&times;</span>
+        <h2 class="modal-title" id="modalTitle">Verify Pickup</h2>
+        <input type="text" id="verificationCode" class="code-input" placeholder="Enter code (e.g., PU-123456)" maxlength="12">
+        <button class="action-btn verify-btn" onclick="submitVerification()">Verify Code</button>
+        <div id="verificationFeedback" class="verification-feedback" style="display: none;"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Verification Modal Variables
+    let currentOrderId = null;
+    let currentVerificationType = null;
+
+    function openVerificationModal(orderId, type) {
+        currentOrderId = orderId;
+        currentVerificationType = type;
+
+        const modal = document.getElementById('verificationModal');
+        const title = document.getElementById('modalTitle');
+        const codeInput = document.getElementById('verificationCode');
+        const feedback = document.getElementById('verificationFeedback');
+
+        if (type === 'pickup') {
+            title.textContent = 'Verify Pickup';
+            codeInput.placeholder = 'Enter pickup code (e.g., PU-123456)';
+        } else {
+            title.textContent = 'Verify Delivery';
+            codeInput.placeholder = 'Enter delivery code (e.g., DL-654321)';
+        }
+
+        codeInput.value = '';
+        feedback.style.display = 'none';
+        modal.style.display = 'block';
+    }
+
+    function closeVerificationModal() {
+        document.getElementById('verificationModal').style.display = 'none';
+        currentOrderId = null;
+        currentVerificationType = null;
+    }
+
+    async function submitVerification() {
+        const code = document.getElementById('verificationCode').value.trim();
+        const feedback = document.getElementById('verificationFeedback');
+
+        if (!code) {
+            showFeedback('Please enter a verification code', 'error');
+            return;
+        }
+
+        const endpoint = currentVerificationType === 'pickup'
+            ? '/deliverer/verify-pickup'
+            : '/deliverer/verify-delivery';
+
+        const payload = {
+            order_id: currentOrderId,
+            [currentVerificationType + '_code']: code
+        };
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showFeedback(data.message, 'success');
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            } else {
+                showFeedback(data.error, 'error');
+            }
+        } catch (error) {
+            showFeedback('Network error. Please try again.', 'error');
+        }
+    }
+
+    function showFeedback(message, type) {
+        const feedback = document.getElementById('verificationFeedback');
+        feedback.textContent = message;
+        feedback.className = 'verification-feedback feedback-' + type;
+        feedback.style.display = 'block';
+    }
+
+    // Close modal when clicking outside of it
+    window.onclick = function(event) {
+        const modal = document.getElementById('verificationModal');
+        if (event.target == modal) {
+            closeVerificationModal();
+        }
+    }
+
+    // === Availability Toggle ===
+    const availabilityToggle = document.getElementById('availabilityToggle');
+    const availabilityLabel = document.getElementById('availabilityLabel');
+
+    if (availabilityToggle) {
+        availabilityToggle.addEventListener('change', async function() {
+            const isAvailable = this.checked;
+
+            try {
+                const response = await fetch('/deliverer/api/toggle-availability', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        is_available: isAvailable
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Update label text
+                    availabilityLabel.textContent = data.is_available ? 'Active' : 'Inactive';
+
+                    // Show success notification (optional)
+                    console.log(data.message);
+                } else {
+                    // Revert toggle on failure
+                    this.checked = !isAvailable;
+                    alert('Failed to update availability: ' + data.error);
+                }
+            } catch (error) {
+                // Revert toggle on error
+                this.checked = !isAvailable;
+                alert('Network error. Please try again.');
+                console.error('Error toggling availability:', error);
+            }
+        });
+    }
+
+    // Earnings Chart
+    const earningsCtx = document.getElementById('earningsChart').getContext('2d');
+    const earningsChart = new Chart(earningsCtx, {
+        type: 'line',
+        data: {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            datasets: [{
+                label: 'Daily Earnings (R)',
+                data: [
+                    {{ deliverer.today_earnings or 0 }},
+                    {{ (deliverer.today_earnings * 0.8)|round(2) }},
+                    {{ (deliverer.today_earnings * 1.2)|round(2) }},
+                    {{ (deliverer.today_earnings * 0.9)|round(2) }},
+                    {{ (deliverer.today_earnings * 1.1)|round(2) }},
+                    {{ (deliverer.today_earnings * 0.7)|round(2) }},
+                    {{ deliverer.today_earnings or 0 }}
+                ],
+                borderColor: '#ff7a18',
+                backgroundColor: 'rgba(255, 122, 24, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#ffffff'
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: '#ffffff',
+                        callback: function(value) {
+                            return 'R' + value;
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: '#ffffff'
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    }
+                }
+            }
+        }
+    });
+
+    // Status Chart
+    const statusCtx = document.getElementById('statusChart').getContext('2d');
+    const statusChart = new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Completed', 'In Transit', 'Ready for Pickup'],
+            datasets: [{
+                data: [
+                    {{ deliverer.completed_deliveries|length }},
+                    {{ deliverer.active_deliveries|length }},
+                    {{ deliverer.available_pickups|length }}
+                ],
+                backgroundColor: [
+                    'rgba(34, 197, 94, 0.8)',
+                    'rgba(249, 115, 22, 0.8)',
+                    'rgba(59, 130, 246, 0.8)'
+                ],
+                borderColor: [
+                    '#22c55e',
+                    '#f97316',
+                    '#3b82f6'
+                ],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: '#ffffff',
+                        padding: 15
+                    }
+                }
+            }
+        }
+    });
+
+    // Push Notification Support
+    if ('Notification' in window && 'serviceWorker' in navigator) {
+        // Request notification permission
+        if (Notification.permission === 'default') {
+            Notification.requestPermission().then(permission => {
+                if (permission === 'granted') {
+                    console.log('Notification permission granted');
+                }
+            });
+        }
+
+        // Check for new deliveries every 30 seconds
+        setInterval(async () => {
+            try {
+                const response = await fetch('/deliverer/api/check-new-deliveries');
+                const data = await response.json();
+
+                if (data.new_deliveries > 0 && Notification.permission === 'granted') {
+                    new Notification('New Delivery Available!', {
+                        body: `${data.new_deliveries} new delivery(ies) ready for pickup`,
+                        icon: '/static/images/SparzaFI_logo.png',
+                        tag: 'new-delivery'
+                    });
+                }
+            } catch (error) {
+                console.error('Error checking for new deliveries:', error);
+            }
+        }, 30000);
+    }
+</script>
+{% endblock %}

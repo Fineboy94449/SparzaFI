@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SparzaFI - Community Marketplace & Fintech Ecosystem">
+    <meta name="theme-color" content="#667eea">
+    <meta name="author" content="SparzaFI">
+
+    <title>{% block title %}SparzaFI - Community Marketplace & Fintech{% endblock %}</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* ========== DARK MODE (Default) ========== */
+        :root {
+            /* Background: Dark purple */
+            --bg-primary: #1a0a2e;
+            --bg-secondary: #16082a;
+            --bg-tertiary: #0f0520;
+
+            /* Objects: Black */
+            --object-bg: #000000;
+            --object-bg-hover: #1a1a1a;
+            --card-bg: #000000;
+            --button-bg: #000000;
+            --input-bg: #000000;
+
+            /* Text: White */
+            --text-primary: #ffffff;
+            --text-secondary: #e0e0e0;
+            --text-muted: #b0b0b0;
+
+            /* Purple accents for dark mode */
+            --primary-color: #667eea;
+            --primary-color-dark: #764ba2;
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+            /* Accent Colors */
+            --accent-color: #ff7a18;
+            --accent-hover: #ff8c32;
+
+            /* Status Colors */
+            --success-color: #48bb78;
+            --error-color: #ff6b6b;
+            --warning-color: #f59e0b;
+
+            /* Borders */
+            --border-color: #333333;
+            --border-light: #444444;
+
+            /* Shadows */
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            --shadow-heavy: 0 8px 32px rgba(0, 0, 0, 0.7);
+
+            /* Utility */
+            --radius: 14px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* ========== LIGHT MODE ========== */
+        [data-theme="light"] {
+            /* Background: White */
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8f9fa;
+            --bg-tertiary: #f0f2f5;
+
+            /* Objects: Dark purple */
+            --object-bg: #667eea;
+            --object-bg-hover: #7c8ff0;
+            --card-bg: #667eea;
+            --button-bg: #667eea;
+            --input-bg: #667eea;
+
+            /* Text: Black */
+            --text-primary: #000000;
+            --text-secondary: #333333;
+            --text-muted: #666666;
+
+            /* Purple for light mode */
+            --primary-color: #764ba2;
+            --primary-color-dark: #5a3877;
+            --primary-gradient: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+
+            /* Accent Colors */
+            --accent-color: #ff7a18;
+            --accent-hover: #ff8c32;
+
+            /* Status Colors */
+            --success-color: #38a169;
+            --error-color: #e53e3e;
+            --warning-color: #d69e2e;
+
+            /* Borders */
+            --border-color: #e0e0e0;
+            --border-light: #f0f0f0;
+
+            /* Shadows */
+            --shadow: 0 2px 12px rgba(102, 126, 234, 0.15);
+            --shadow-heavy: 0 4px 24px rgba(102, 126, 234, 0.25);
+
+            /* Utility - same as dark mode */
+            --radius: 14px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            padding: 0;
+            overflow-x: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        body {
+            padding-top: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Utility Classes */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+            margin-bottom: 1.5rem;
+            transition: var(--transition);
+            color: var(--text-primary);
+        }
+
+        .card:hover {
+            border-color: var(--border-light);
+            box-shadow: var(--shadow-heavy);
+            transform: translateY(-2px);
+        }
+        
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            border: none;
+            font-family: inherit;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: var(--accent-color);
+            color: white;
+            border: 1px solid var(--accent-color);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--accent-hover);
+            box-shadow: 0 4px 12px rgba(255, 122, 24, 0.5);
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--text-primary);
+        }
+
+        .btn-outline:hover:not(:disabled) {
+            background: var(--object-bg-hover);
+            color: var(--accent-color);
+            border-color: var(--accent-color);
+        }
+        
+        .btn-small {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+        }
+
+        .btn-danger {
+            background: var(--error-color);
+            color: white;
+            border: 1px solid var(--error-color);
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #ff5252;
+            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.5);
+        }
+
+        /* HEADER & NAVIGATION */
+        header {
+            background: var(--primary-gradient);
+            box-shadow: var(--shadow);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        nav {
+            max-width: 100%;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            gap: 1rem;
+        }
+
+        .logo {
+            font-weight: 800;
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transition: var(--transition);
+            flex-shrink: 0;
+            font-size: 1.5rem;
+        }
+
+        .logo-img {
+            height: 50px;
+            width: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(255, 122, 24, 0.3);
+            transition: var(--transition);
+        }
+
+        .logo:hover {
+            opacity: 0.9;
+            transform: scale(1.02);
+        }
+
+        .logo:hover .logo-img {
+            box-shadow: 0 6px 16px rgba(255, 122, 24, 0.5);
+        }
+
+        /* Search Bar */
+        .search-container {
+            flex-grow: 1;
+            max-width: 600px;
+            min-width: 200px;
+            margin: 0 2rem;
+            position: relative;
+        }
+
+        .search-bar {
+            width: 100%;
+            padding: 0.6rem 1rem;
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 25px;
+            color: white;
+            font-size: 0.9rem;
+            transition: var(--transition);
+            font-family: inherit;
+        }
+
+        .search-bar::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .search-bar:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+
+        /* Nav Right Section */
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        /* Browse and Network Links */
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            margin-right: 0.5rem;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: var(--transition);
+            position: relative;
+            white-space: nowrap;
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.6);
+            transition: var(--transition);
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+
+        .nav-links a:hover {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        /* Profile Dropdown Styling */
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .dropdown-toggle {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            padding: 0;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: var(--transition);
+            font-family: inherit;
+        }
+
+        .pfp-toggle {
+            font-size: 1.8rem;
+            transition: var(--transition);
+            border-radius: 50%;
+            overflow: hidden;
+            height: 40px;
+            width: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .pfp-toggle:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+            transform: scale(1.05);
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            background: rgba(15, 23, 36, 0.98);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            min-width: 250px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+            z-index: 2000;
+            top: calc(100% + 8px);
+            right: 0;
+            backdrop-filter: blur(10px);
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .dropdown-menu a,
+        .dropdown-menu button {
+            display: block;
+            width: 100%;
+            padding: 0.75rem 1.5rem;
+            color: white;
+            text-decoration: none;
+            background: none;
+            border: none;
+            cursor: pointer;
+            text-align: left;
+            font-size: 0.9rem;
+            transition: var(--transition);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-family: inherit;
+        }
+
+        .dropdown-menu a:last-child,
+        .dropdown-menu button:last-child {
+            border-bottom: none;
+            border-bottom-left-radius: 10px;
+            border-bottom-right-radius: 10px;
+        }
+
+        .dropdown-menu a:hover,
+        .dropdown-menu button:hover {
+            background: rgba(255, 122, 24, 0.15);
+            color: var(--accent-color);
+        }
+
+        .dropdown-menu .divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 0.5rem 0;
+        }
+
+        /* Dropdown Header */
+        .dropdown-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 0.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+        }
+
+        .dropdown-header p {
+            margin: 0;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            word-break: break-word;
+        }
+
+        .dropdown-header strong {
+            color: var(--text-primary);
+        }
+
+        .role-badge {
+            display: inline-block;
+            padding: 0.25rem 0.65rem;
+            background: var(--accent-color);
+            color: white;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-top: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Cart Icon */
+        .cart-icon {
+            position: relative;
+            font-size: 1.3rem;
+            cursor: pointer;
+            color: white;
+            text-decoration: none;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cart-icon:hover {
+            transform: scale(1.1);
+            filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.4));
+        }
+
+        .cart-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--accent-color);
+            color: white;
+            border-radius: 50%;
+        }
+
+        /* Balance Display */
+        .balance-link {
+            position: relative;
+            font-size: 0.95rem;
+            cursor: pointer;
+            color: white;
+            text-decoration: none;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.5rem 0.75rem;
+            background: rgba(102, 126, 234, 0.2);
+            border-radius: 8px;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            font-weight: 600;
+        }
+
+        .balance-link:hover {
+            background: rgba(102, 126, 234, 0.3);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .balance-icon {
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(255, 122, 24, 0.5);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+        }
+
+        /* Theme Toggle Button */
+        .theme-toggle-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+            color: var(--text-primary);
+        }
+
+        .theme-toggle-btn:hover {
+            background: var(--object-bg-hover);
+            transform: rotate(180deg) scale(1.1);
+        }
+
+        .theme-icon {
+            display: block;
+            filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.3));
+        }
+
+        /* MAIN CONTAINER */
+        main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 6rem 1.5rem 2rem;
+            min-height: calc(100vh - 80px);
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+            font-weight: 700;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        a {
+            color: var(--accent-color);
+            text-decoration: none;
+            transition: var(--transition);
+        }
+
+        a:hover {
+            color: #ff9a47;
+        }
+
+        /* Tables */
+        .table-responsive {
+            overflow-x: auto;
+            border-radius: var(--radius);
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        th {
+            background-color: rgba(255, 255, 255, 0.05);
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
+        }
+
+        tbody tr {
+            transition: var(--transition);
+        }
+
+        tbody tr:hover {
+            background-color: rgba(255, 255, 255, 0.03);
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+        
+        /* Forms */
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--input-bg);
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            transition: var(--transition);
+            font-family: inherit;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(255, 122, 24, 0.1);
+        }
+
+        .form-control::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        
+        /* Status badges */
+        .status-completed,
+        .status-verified {
+            color: var(--success-color);
+            font-weight: 600;
+        }
+
+        .status-pending {
+            color: var(--warning-color);
+            font-weight: 600;
+        }
+
+        .status-rejected,
+        .status-unverified {
+            color: var(--error-color);
+            font-weight: 600;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-success {
+            background: rgba(72, 187, 120, 0.2);
+            color: var(--success-color);
+        }
+
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning-color);
+        }
+
+        .badge-error {
+            background: rgba(255, 107, 107, 0.2);
+            color: var(--error-color);
+        }
+
+        /* FOOTER */
+        footer {
+            background: linear-gradient(180deg, #0b1220 0%, #050d1a 100%);
+            color: var(--text-secondary);
+            text-align: center;
+            padding: 1.5rem 1rem;
+            margin-top: auto;
+            border-top: 1px solid var(--border-color);
+            box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.6);
+        }
+
+        footer p {
+            margin: 0.25rem 0;
+            font-size: 0.8rem;
+        }
+
+        footer a {
+            color: var(--accent-color);
+            text-decoration: none;
+            transition: var(--transition);
+        }
+
+        footer a:hover {
+            color: #ff9a47;
+            text-decoration: underline;
+        }
+
+        .footer-compact {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            font-size: 0.8rem;
+        }
+
+        .footer-compact span {
+            color: var(--text-secondary);
+        }
+
+        .footer-compact a {
+            color: var(--accent-color);
+        }
+
+        /* Alerts */
+        .alert {
+            padding: 1rem 1.25rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .alert-success {
+            background: rgba(72, 187, 120, 0.1);
+            border-color: var(--success-color);
+            color: var(--success-color);
+        }
+
+        .alert-error {
+            background: rgba(255, 107, 107, 0.1);
+            border-color: var(--error-color);
+            color: var(--error-color);
+        }
+
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border-color: var(--warning-color);
+            color: var(--warning-color);
+        }
+
+        .alert-info {
+            background: rgba(102, 126, 234, 0.1);
+            border-color: #667eea;
+            color: #8b9eff;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid var(--accent-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 2rem auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            nav {
+                padding: 0.75rem 1rem;
+                gap: 0.75rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .search-container {
+                flex-grow: 1;
+                max-width: 100%;
+                min-width: 100px;
+                margin: 0;
+            }
+
+            .search-bar {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.85rem;
+            }
+
+            .nav-right {
+                gap: 0.75rem;
+            }
+
+            .pfp-toggle {
+                font-size: 1.5rem;
+                height: 35px;
+                width: 35px;
+            }
+
+            .dropdown-menu {
+                min-width: 200px;
+                right: -10px;
+            }
+
+            main {
+                padding: 5.5rem 1rem 2rem;
+            }
+
+            h1 {
+                font-size: 1.75rem;
+            }
+
+            h2 {
+                font-size: 1.35rem;
+            }
+
+            .card {
+                padding: 1rem;
+            }
+
+            table {
+                font-size: 0.85rem;
+            }
+
+            th, td {
+                padding: 0.75rem 0.5rem;
+            }
+
+            .footer-compact {
+                flex-direction: column;
+                gap: 0.5rem;
+                font-size: 0.75rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .logo {
+                font-size: 1.2rem;
+            }
+
+            .cart-icon {
+                font-size: 1.1rem;
+            }
+
+            .cart-badge {
+                font-size: 0.65rem;
+                min-width: 18px;
+                height: 18px;
+            }
+
+            .balance-link {
+                font-size: 0.8rem;
+                padding: 0.4rem 0.6rem;
+            }
+
+            .balance-link span:last-child {
+                display: none;
+            }
+
+            .balance-icon {
+                font-size: 1.2rem;
+            }
+
+            main {
+                padding: 5rem 1rem 1.5rem;
+            }
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="{{ url_for('marketplace.feed') }}" class="logo" aria-label="SparzaFI Home">
+                <img src="{{ url_for('static', filename='images/SparzaFI_logo.png') }}" alt="SparzaFI" class="logo-img">
+                <span>SparzaFI</span>
+            </a>
+
+            <div class="search-container">
+                <input type="search" 
+                       placeholder="Search products, sellers, or categories..." 
+                       class="search-bar"
+                       aria-label="Search marketplace">
+            </div>
+
+            <div class="nav-right">
+                <div class="nav-links">
+                    <a href="{{ url_for('marketplace.feed') }}">Browse</a>
+                    <a href="{{ url_for('marketplace.transactions_explorer') }}">Network</a>
+                    {% if session.get('user') %}
+                        <a href="{{ url_for('user.buyer_dashboard') }}">My Orders</a>
+                    {% endif %}
+                    {% if session.get('user') and session.user.get('user_type') == 'seller' %}
+                        <a href="{{ url_for('seller.seller_dashboard') }}">My Store</a>
+                    {% endif %}
+                    {% if session.get('user') and session.user.get('user_type') == 'deliverer' %}
+                        <a href="{{ url_for('deliverer.dashboard') }}">Deliveries</a>
+                    {% endif %}
+                </div>
+
+                {% if session.get('user') %}
+                    <div class="dropdown profile-dropdown">
+                        {% if session.user.get('is_admin') %}
+                            <button class="dropdown-toggle pfp-toggle" 
+                                    id="adminDropdownToggle" 
+                                    aria-expanded="false" 
+                                    aria-controls="adminDropdownMenu"
+                                    aria-label="Admin menu">
+                                <span class="user-pfp" title="Admin Dashboard">👨‍💼</span>
+                            </button>
+                        {% else %}
+                            <button class="dropdown-toggle pfp-toggle" 
+                                    id="userDropdownToggle" 
+                                    aria-expanded="false" 
+                                    aria-controls="userDropdownMenu"
+                                    aria-label="User menu">
+                                <span class="user-pfp" title="My Profile">👤</span>
+                            </button>
+                        {% endif %}
+
+                        {% if session.user.get('is_admin') %}
+                        <div class="dropdown-menu admin-menu" 
+                             id="adminDropdownMenu" 
+                             aria-labelledby="adminDropdownToggle"
+                             role="menu">
+                            <div class="dropdown-header">
+                                <p><strong>Admin:</strong> {{ session.user.get('email', 'N/A') }}</p>
+                                <span class="role-badge">Administrator</span>
+                            </div>
+                            <a href="{{ url_for('admin.admin_dashboard_enhanced') }}" role="menuitem">Dashboard</a>
+                            <a href="{{ url_for('admin.admin_verification') }}" role="menuitem">Verification</a>
+                            <a href="{{ url_for('admin.admin_moderation') }}" role="menuitem">Moderation</a>
+                            <a href="{{ url_for('admin.admin_tax_compliance') }}" role="menuitem">Tax & Compliance</a>
+                            <a href="{{ url_for('user.user_settings') }}" role="menuitem">Settings</a>
+                            <div class="divider"></div>
+                            <button onclick="document.getElementById('logout-form').submit();" role="menuitem">Sign Out</button>
+                            <form id="logout-form" action="{{ url_for('auth.logout') }}" method="get" style="display: none;"></form>
+                        </div>
+                        {% else %}
+                        <div class="dropdown-menu user-menu"
+                             id="userDropdownMenu"
+                             aria-labelledby="userDropdownToggle"
+                             role="menu">
+                            <div class="dropdown-header">
+                                <p><strong>User:</strong> {{ session.user.get('email', 'N/A') }}</p>
+                                <p><strong>Balance:</strong> {{ session.user.get('token_balance', 0) | round(2) }} SPZ</p>
+                            </div>
+                            <a href="{{ url_for('user.user_profile') }}" role="menuitem">My Profile</a>
+                            <a href="{{ url_for('user.buyer_dashboard') }}" role="menuitem">📦 My Orders</a>
+                            {% if session.user.get('user_type') == 'seller' %}
+                                <a href="{{ url_for('seller.seller_dashboard') }}" role="menuitem">🏪 Seller Dashboard</a>
+                            {% endif %}
+                            {% if session.user.get('user_type') == 'deliverer' %}
+                                <a href="{{ url_for('deliverer.dashboard') }}" role="menuitem">🚚 Deliverer Dashboard</a>
+                            {% endif %}
+                            <a href="{{ url_for('user.wallet') }}" role="menuitem">My Wallet</a>
+                            <a href="{{ url_for('user.user_settings') }}" role="menuitem">Settings</a>
+                            <div class="divider"></div>
+                            <button onclick="document.getElementById('logout-form').submit();" role="menuitem">Sign Out</button>
+                            <form id="logout-form" action="{{ url_for('auth.logout') }}" method="get" style="display: none;"></form>
+                        </div>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-small btn-outline">Login</a>
+                {% endif %}
+
+                <!-- Theme Toggle Button -->
+                <button id="theme-toggle" class="theme-toggle-btn" title="Toggle theme" aria-label="Toggle between dark and light mode">
+                    <span class="theme-icon">🌙</span>
+                </button>
+
+                <a href="{{ url_for('marketplace.cart') }}"
+                   class="cart-icon"
+                   title="Shopping Cart"
+                   aria-label="Shopping cart with {{ cart_count or 0 }} items">
+                    🛒
+                    {% if cart_count and cart_count > 0 %}
+                        <span class="cart-badge" aria-label="{{ cart_count }} items">{{ cart_count }}</span>
+                    {% endif %}
+                </a>
+
+                {% if session.get('user') %}
+                <a href="{{ url_for('user.wallet') }}"
+                   class="balance-link"
+                   title="My Wallet - Click to view"
+                   aria-label="Wallet balance: {{ session.user.get('token_balance', 0)|round(2) }} SPZ">
+                    <span class="balance-icon">💰</span>
+                    <span>{{ session.user.get('token_balance', 0)|round(2) }} SPZ</span>
+                </a>
+                {% endif %}
+            </div>
+        </nav>
+    </header>
+    
+    <main role="main">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}" data-auto-dismiss="5000">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+    
+    <footer role="contentinfo">
+        <div class="footer-compact">
+            <span>&copy; 2025 SparzaFI</span>
+            <span>•</span>
+            <a href="#privacy">Privacy</a>
+            <span>•</span>
+            <a href="#terms">Terms</a>
+            <span>•</span>
+            <a href="mailto:support@sparzafi.com">Support</a>
+            <span>•</span>
+            <span>Commission: 6.5%</span>
+        </div>
+    </footer>
+    
+    <script>
+        // Dropdown Toggle Functionality
+        function setupDropdown(toggleId, menuId) {
+            const toggle = document.getElementById(toggleId);
+            const menu = document.getElementById(menuId);
+
+            if (!toggle || !menu) return;
+
+            const toggleDropdown = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const isShown = menu.classList.contains('show');
+                
+                // Close all other dropdowns
+                document.querySelectorAll('.dropdown-menu.show').forEach(openMenu => {
+                    if (openMenu !== menu) {
+                        openMenu.classList.remove('show');
+                        const otherToggle = document.querySelector(`[aria-controls="${openMenu.id}"]`);
+                        if (otherToggle) {
+                            otherToggle.setAttribute('aria-expanded', 'false');
+                        }
+                    }
+                });
+                
+                // Toggle current dropdown
+                menu.classList.toggle('show');
+                toggle.setAttribute('aria-expanded', String(!isShown));
+            };
+
+            toggle.addEventListener('click', toggleDropdown);
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!toggle.contains(e.target) && !menu.contains(e.target)) {
+                    menu.classList.remove('show');
+                    toggle.setAttribute('aria-expanded', 'false');
+                }
+            });
+
+            // Close dropdown on escape key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && menu.classList.contains('show')) {
+                    menu.classList.remove('show');
+                    toggle.setAttribute('aria-expanded', 'false');
+                    toggle.focus();
+                }
+            });
+        }
+
+        // Auto-dismiss alerts
+        function initAlerts() {
+            const alerts = document.querySelectorAll('.alert[data-auto-dismiss]');
+            alerts.forEach(alert => {
+                const delay = parseInt(alert.getAttribute('data-auto-dismiss')) || 5000;
+                setTimeout(() => {
+                    alert.style.opacity = '0';
+                    alert.style.transform = 'translateY(-10px)';
+                    setTimeout(() => alert.remove(), 300);
+                }, delay);
+            });
+        }
+
+        // Theme Toggle Functionality
+        function initThemeToggle() {
+            const themeToggle = document.getElementById('theme-toggle');
+            const themeIcon = document.querySelector('.theme-icon');
+            const htmlElement = document.documentElement;
+
+            // Check for saved theme preference or default to dark mode
+            const currentTheme = localStorage.getItem('theme') || 'dark';
+
+            // Apply saved theme
+            if (currentTheme === 'light') {
+                htmlElement.setAttribute('data-theme', 'light');
+                themeIcon.textContent = '☀️';
+            } else {
+                htmlElement.removeAttribute('data-theme');
+                themeIcon.textContent = '🌙';
+            }
+
+            // Toggle theme on button click
+            themeToggle.addEventListener('click', function() {
+                const isDark = !htmlElement.hasAttribute('data-theme');
+
+                if (isDark) {
+                    // Switch to light mode
+                    htmlElement.setAttribute('data-theme', 'light');
+                    themeIcon.textContent = '☀️';
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    // Switch to dark mode
+                    htmlElement.removeAttribute('data-theme');
+                    themeIcon.textContent = '🌙';
+                    localStorage.setItem('theme', 'dark');
+                }
+            });
+        }
+
+        // Initialize on DOM ready
+        document.addEventListener('DOMContentLoaded', function() {
+            setupDropdown('adminDropdownToggle', 'adminDropdownMenu');
+            setupDropdown('userDropdownToggle', 'userDropdownMenu');
+            initAlerts();
+            initThemeToggle();
+        });
+    </script>
+
+    <!-- Chat Component -->
+    {% include 'chat_component.html' %}
+
+    <!-- Main JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Product - Bizzy Street{% endblock %}
+
+{% block extra_css %}
+<style>
+    .edit-container {
+        max-width: 600px;
+        margin: 2rem auto;
+    }
+    
+    .edit-card {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.04);
+        border-radius: 14px;
+        padding: 2rem;
+    }
+    
+    .edit-card h2 {
+        color: var(--accent-color);
+        margin-top: 0;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    label {
+        display: block;
+        margin-bottom: 0.75rem;
+        font-weight: bold;
+        color: var(--text-light);
+    }
+
+    input, textarea {
+        width: 100%;
+        padding: 0.75rem;
+        background: var(--input-bg);
+        border: 1px solid var(--input-border);
+        border-radius: 8px;
+        color: var(--text-light);
+        font-family: inherit;
+        font-size: 1rem;
+        transition: border-color 0.3s;
+    }
+    
+    input:focus, textarea:focus {
+        outline: none;
+        border-color: rgba(255,122,24,0.3);
+    }
+    
+    textarea {
+        resize: vertical;
+        min-height: 100px;
+    }
+    
+    .button-group {
+        display: flex;
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+    
+    .button-group button,
+    .button-group a {
+        flex: 1;
+        padding: 0.75rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-decoration: none;
+        text-align: center;
+    }
+    
+    .save-btn {
+        background: var(--success-gradient);
+        color: white;
+    }
+    
+    .save-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(72, 187, 120, 0.4);
+    }
+    
+    .cancel-btn {
+        background: rgba(255,255,255,0.05);
+        color: #94a3b8;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .cancel-btn:hover {
+        background: rgba(255,255,255,0.1);
+    }
+    
+    .error {
+        background: rgba(255, 107, 107, 0.2);
+        color: #ff6b6b;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        border-left: 4px solid #ff6b6b;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="edit-container">
+    <div class="edit-card">
+        <h2>✏️ Edit Product</h2>
+        
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+        
+        <form method="POST">
+            <div class="form-group">
+                <label for="productName">Product Name</label>
+                <input type="text" id="productName" name="productName" value="{{ product.name }}" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="productDescription">Description</label>
+                <textarea id="productDescription" name="productDescription">{{ product.description }}</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="productPrice">Price (R)</label>
+                <input type="number" id="productPrice" name="productPrice" step="0.01" min="0" value="{{ product.price }}" required>
+            </div>
+            
+            <div class="button-group">
+                <button type="submit" class="save-btn">Save Changes</button>
+                <a href="{{ url_for('seller_page') }}" class="cancel-btn">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

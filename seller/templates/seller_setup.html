@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Become a Seller - Bizzy Street{% endblock %}
+
+{% block extra_css %}
+<style>
+    .setup-container {
+        max-width: 700px;
+        margin: 2rem auto;
+    }
+    
+    .setup-card {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.04);
+        border-radius: 14px;
+        padding: 2rem;
+    }
+    
+    .setup-card h2 {
+        color: #ff7a18;
+        margin-top: 0;
+    }
+    
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    label {
+        display: block;
+        margin-bottom: 0.75rem;
+        font-weight: bold;
+        color: #fff;
+    }
+    
+    input, textarea {
+        width: 100%;
+        padding: 0.75rem;
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.04);
+        border-radius: 8px;
+        color: #fff;
+        font-family: inherit;
+        font-size: 1rem;
+        transition: border-color 0.3s;
+    }
+    
+    input:focus, textarea:focus {
+        outline: none;
+        border-color: rgba(255,122,24,0.3);
+    }
+    
+    textarea {
+        resize: vertical;
+        min-height: 100px;
+    }
+    
+    .submit-btn {
+        width: 100%;
+        padding: 1rem;
+        background: linear-gradient(90deg, #48bb78, #38a169);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 1.1rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .submit-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(72, 187, 120, 0.4);
+    }
+    
+    .info-box {
+        background: rgba(102, 126, 234, 0.1);
+        border: 1px solid rgba(102, 126, 234, 0.3);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        color: #667eea;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="setup-container">
+    <div class="setup-card">
+        <h2>🏪 Become a Seller</h2>
+        
+        <div class="info-box">
+            <strong>Welcome to Bizzy Street!</strong> Set up your store to start selling. You'll be able to upload products and videos to showcase your business.
+        </div>
+        
+        <form method="POST">
+            <div class="form-group">
+                <label for="sellerName">Store Name *</label>
+                <input type="text" id="sellerName" name="sellerName" placeholder="e.g., Thandi's Kitchen" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="sellerHandle">Store Handle *</label>
+                <input type="text" id="sellerHandle" name="sellerHandle" placeholder="e.g., thandiskitchen (no spaces)" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="location">Location *</label>
+                <input type="text" id="location" name="location" placeholder="e.g., Soweto, Johannesburg" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="bio">About Your Store *</label>
+                <textarea id="bio" name="bio" placeholder="Tell customers what you sell and why they should choose you..." required></textarea>
+            </div>
+            
+            <button type="submit" class="submit-btn">Create Store</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

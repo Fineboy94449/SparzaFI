@@ -1,0 +1,676 @@
+{% extends "base.html" %}
+
+{% block title %}Transaction Explorer - Bizzy Street{% endblock %}
+
+{% block extra_css %}
+<style>
+    .explorer-header {
+        text-align: center;
+        margin-bottom: 3rem;
+        padding: 2rem 0;
+        background: var(--card-bg);
+        border-radius: var(--radius);
+        border: 1px solid var(--border-color);
+    }
+    
+    .explorer-header h1 {
+        font-size: 2.5rem;
+        margin-bottom: 0.75rem;
+        background: linear-gradient(135deg, var(--accent-color), #ff9a47);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .explorer-header p {
+        font-size: 1.1rem;
+        color: var(--text-secondary);
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 3rem;
+    }
+    
+    .stat-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        text-align: center;
+        transition: var(--transition);
+    }
+    
+    .stat-card:hover {
+        border-color: var(--accent-color);
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(255, 122, 24, 0.2);
+    }
+    
+    .stat-icon {
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--accent-color);
+        margin-bottom: 0.25rem;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .transactions-container {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--border-color);
+    }
+    
+    .section-title {
+        font-size: 1.5rem;
+        color: var(--text-primary);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .filter-controls {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+    
+    .filter-select {
+        padding: 0.5rem 1rem;
+        background: var(--dark-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        color: var(--text-primary);
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    
+    .filter-select:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 3px rgba(255, 122, 24, 0.1);
+    }
+    
+    .transaction-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .transaction-item {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 1.5rem;
+        transition: var(--transition);
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 1.5rem;
+        align-items: center;
+    }
+    
+    .transaction-item:hover {
+        background: rgba(255, 255, 255, 0.04);
+        border-color: var(--accent-color);
+        transform: translateX(4px);
+    }
+    
+    .tx-icon {
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, var(--accent-color), #ff9a47);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+    
+    .tx-details {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .tx-hash {
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+        color: var(--accent-color);
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        word-break: break-all;
+    }
+    
+    .tx-meta {
+        display: flex;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+        margin-top: 0.5rem;
+    }
+    
+    .tx-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+    
+    .tx-meta-label {
+        font-weight: 500;
+        color: var(--text-primary);
+    }
+    
+    .tx-amount {
+        text-align: right;
+        flex-shrink: 0;
+    }
+    
+    .tx-amount-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--success-color);
+        margin-bottom: 0.25rem;
+    }
+    
+    .tx-status {
+        display: inline-block;
+        padding: 0.35rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .tx-status.completed {
+        background: rgba(72, 187, 120, 0.2);
+        color: var(--success-color);
+    }
+    
+    .tx-status.pending {
+        background: rgba(245, 158, 11, 0.2);
+        color: var(--warning-color);
+    }
+    
+    .delivery-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.35rem 0.75rem;
+        background: rgba(102, 126, 234, 0.15);
+        border-radius: 6px;
+        font-size: 0.8rem;
+        color: #8b9eff;
+    }
+    
+    .payment-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.35rem 0.75rem;
+        background: rgba(255, 122, 24, 0.15);
+        border-radius: 6px;
+        font-size: 0.8rem;
+        color: var(--accent-color);
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: var(--text-secondary);
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    .empty-state h3 {
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+    
+    .blockchain-info {
+        background: rgba(102, 126, 234, 0.1);
+        border: 1px solid rgba(102, 126, 234, 0.3);
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: start;
+        gap: 1rem;
+    }
+    
+    .blockchain-info-icon {
+        font-size: 2rem;
+        flex-shrink: 0;
+    }
+    
+    .blockchain-info-content h3 {
+        color: #8b9eff;
+        margin-bottom: 0.5rem;
+        font-size: 1.1rem;
+    }
+    
+    .blockchain-info-content p {
+        color: #a5b4fc;
+        line-height: 1.6;
+        margin: 0;
+    }
+    
+    .load-more {
+        text-align: center;
+        margin-top: 2rem;
+    }
+    
+    .load-more-btn {
+        padding: 0.875rem 2rem;
+        background: transparent;
+        border: 2px solid var(--accent-color);
+        color: var(--accent-color);
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    
+    .load-more-btn:hover:not(:disabled) {
+        background: var(--accent-color);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(255, 122, 24, 0.3);
+    }
+    
+    .load-more-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .explorer-header h1 {
+            font-size: 2rem;
+        }
+        
+        .stats-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        
+        .transaction-item {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        
+        .tx-icon {
+            width: 40px;
+            height: 40px;
+            font-size: 1.2rem;
+        }
+        
+        .tx-amount {
+            text-align: left;
+        }
+        
+        .filter-controls {
+            flex-direction: column;
+            width: 100%;
+        }
+        
+        .filter-select {
+            width: 100%;
+        }
+        
+        .section-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div class="explorer-header">
+        <h1>🔗 Transaction Explorer</h1>
+        {% if is_admin %}
+        <p style="color: #fbbf24; font-weight: 600;">👨‍💼 Admin View - All Transactions</p>
+        {% elif user_identifier %}
+        <p>Your Identifier: <span style="color: var(--accent-color); font-weight: 700; font-family: monospace;">{{ user_identifier }}</span></p>
+        {% else %}
+        <p>View your transaction history on the blockchain</p>
+        {% endif %}
+    </div>
+
+    <!-- Search Bar -->
+    {% if is_admin or user_identifier %}
+    <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 2rem;">
+        <form method="get" action="{{ url_for('marketplace.transactions_explorer') }}" style="display: flex; gap: 1rem;">
+            <input type="text"
+                   name="search"
+                   value="{{ search_query or '' }}"
+                   placeholder="{% if is_admin %}Search by any user ID (e.g., buyer000045, seller000123, deliverer000078){% else %}Search your transactions (enter your ID: {{ user_identifier }}){% endif %}"
+                   style="flex: 1; padding: 0.75rem 1rem; background: var(--dark-bg); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-family: monospace;">
+            <button type="submit"
+                    style="padding: 0.75rem 1.5rem; background: var(--accent-color); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
+                🔍 Search
+            </button>
+            {% if search_query %}
+            <a href="{{ url_for('marketplace.transactions_explorer') }}"
+               style="padding: 0.75rem 1.5rem; background: transparent; color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: 6px; font-weight: 600; text-decoration: none; display: flex; align-items: center;">
+                Clear
+            </a>
+            {% endif %}
+        </form>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.75rem;">
+            {% if is_admin %}
+            💡 <strong>Admin Power:</strong> Search for any user ID to view their transaction history.
+            {% else %}
+            💡 <strong>Your ID:</strong> {{ user_identifier }} - Use this to search and filter your transactions.
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+
+    <!-- Blockchain Info -->
+    <div class="blockchain-info">
+        <span class="blockchain-info-icon">🔐</span>
+        <div class="blockchain-info-content">
+            <h3>Transparent & {% if is_admin %}Powerful{% else %}Secure{% endif %}</h3>
+            {% if is_admin %}
+            <p>As an administrator, you have full access to all platform transactions. Search by any user identifier to view their transaction history.</p>
+            {% else %}
+            <p>Your transactions are secured and private. Only you can view your transaction history using your unique identifier.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Statistics -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-value">{{ transactions|length }}</div>
+            <div class="stat-label">Recent Transactions</div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">💰</div>
+            <div class="stat-value">
+                {% set total = transactions|selectattr('status', 'equalto', 'Completed')|map(attribute='total_amount')|sum %}
+                R{{ "%.2f"|format(total) }}
+            </div>
+            <div class="stat-label">Total Volume</div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-value">
+                {{ transactions|selectattr('status', 'equalto', 'Completed')|list|length }}
+            </div>
+            <div class="stat-label">Completed</div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">⏳</div>
+            <div class="stat-value">
+                {{ transactions|selectattr('status', 'equalto', 'Pending')|list|length }}
+            </div>
+            <div class="stat-label">Pending</div>
+        </div>
+    </div>
+    
+    <!-- Transactions List -->
+    <div class="transactions-container">
+        <div class="section-header">
+            <h2 class="section-title">
+                <span>📜</span>
+                Recent Transactions
+            </h2>
+            <div class="filter-controls">
+                <select class="filter-select" id="statusFilter">
+                    <option value="all">All Transactions</option>
+                    <option value="Completed">Completed Only</option>
+                    <option value="Pending">Pending Only</option>
+                </select>
+                <select class="filter-select" id="sortFilter">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="highest">Highest Amount</option>
+                    <option value="lowest">Lowest Amount</option>
+                </select>
+            </div>
+        </div>
+        
+        {% if transactions %}
+        <div class="transaction-list" id="transactionList">
+            {% for tx in transactions %}
+            <div class="transaction-item" data-status="{{ tx.status }}" data-amount="{{ tx.total_amount }}" data-timestamp="{{ tx.timestamp }}">
+                <div class="tx-icon">💳</div>
+                
+                <div class="tx-details">
+                    <div class="tx-hash" title="Transaction Hash">
+                        {{ tx.tx_hash }}
+                    </div>
+
+                    <div class="tx-meta">
+                        <div class="tx-meta-item">
+                            <span class="tx-meta-label">Buyer:</span>
+                            <span style="font-family: monospace; color: #60a5fa;">{{ tx.buyer_identifier }}</span>
+                        </div>
+                        <div class="tx-meta-item">
+                            <span class="tx-meta-label">Seller:</span>
+                            <span style="font-family: monospace; color: #f59e0b;">{{ tx.seller_identifier }}</span>
+                        </div>
+                        {% if tx.deliverer_identifier != 'none' %}
+                        <div class="tx-meta-item">
+                            <span class="tx-meta-label">Deliverer:</span>
+                            <span style="font-family: monospace; color: #10b981;">{{ tx.deliverer_identifier }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="tx-meta-item">
+                            <span class="tx-meta-label">Time:</span>
+                            <span>{{ tx.timestamp }}</span>
+                        </div>
+                        <div class="tx-meta-item">
+                            <span class="payment-badge">
+                                🪙 {{ tx.payment_method or 'SPZ' }}
+                            </span>
+                        </div>
+                        <div class="tx-meta-item">
+                            <span class="delivery-badge">
+                                🚚 {{ tx.delivery_label }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tx-amount">
+                    <div class="tx-amount-value">{{ tx.display_amount }}</div>
+                    <span class="tx-status {{ tx.status|lower }}">{{ tx.status }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="load-more">
+            <button class="load-more-btn" onclick="loadMoreTransactions()">
+                Load More Transactions
+            </button>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <h3>No Transactions Yet</h3>
+            <p>Transactions will appear here as they are processed on the network</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Filter transactions by status
+    const statusFilter = document.getElementById('statusFilter');
+    const sortFilter = document.getElementById('sortFilter');
+    const transactionList = document.getElementById('transactionList');
+    
+    if (statusFilter && transactionList) {
+        statusFilter.addEventListener('change', function() {
+            filterTransactions();
+        });
+    }
+    
+    if (sortFilter && transactionList) {
+        sortFilter.addEventListener('change', function() {
+            sortTransactions();
+        });
+    }
+    
+    function filterTransactions() {
+        const filterValue = statusFilter.value;
+        const items = transactionList.querySelectorAll('.transaction-item');
+        
+        items.forEach(item => {
+            const status = item.dataset.status;
+            
+            if (filterValue === 'all' || status === filterValue) {
+                item.style.display = 'grid';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+        
+        updateEmptyState();
+    }
+    
+    function sortTransactions() {
+        const sortValue = sortFilter.value;
+        const items = Array.from(transactionList.querySelectorAll('.transaction-item'));
+        
+        items.sort((a, b) => {
+            switch(sortValue) {
+                case 'newest':
+                    return new Date(b.dataset.timestamp) - new Date(a.dataset.timestamp);
+                case 'oldest':
+                    return new Date(a.dataset.timestamp) - new Date(b.dataset.timestamp);
+                case 'highest':
+                    return parseFloat(b.dataset.amount) - parseFloat(a.dataset.amount);
+                case 'lowest':
+                    return parseFloat(a.dataset.amount) - parseFloat(b.dataset.amount);
+                default:
+                    return 0;
+            }
+        });
+        
+        items.forEach(item => transactionList.appendChild(item));
+    }
+    
+    function updateEmptyState() {
+        const visibleItems = transactionList.querySelectorAll('.transaction-item[style*="display: grid"], .transaction-item:not([style*="display: none"])');
+        
+        let emptyState = transactionList.parentElement.querySelector('.empty-state');
+        
+        if (visibleItems.length === 0) {
+            if (!emptyState) {
+                emptyState = document.createElement('div');
+                emptyState.className = 'empty-state';
+                emptyState.innerHTML = `
+                    <div class="empty-state-icon">🔍</div>
+                    <h3>No Transactions Found</h3>
+                    <p>Try adjusting your filters</p>
+                `;
+                transactionList.parentElement.insertBefore(emptyState, transactionList.nextSibling);
+            }
+            emptyState.style.display = 'block';
+        } else if (emptyState) {
+            emptyState.style.display = 'none';
+        }
+    }
+    
+    // Load more transactions (placeholder)
+    function loadMoreTransactions() {
+        const btn = event.target;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner" style="width: 16px; height: 16px; border-width: 2px; margin: 0;"></span> Loading...';
+        
+        // Simulate loading
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.textContent = 'No More Transactions';
+        }, 1500);
+    }
+    
+    // Copy transaction hash on click
+    document.querySelectorAll('.tx-hash').forEach(hash => {
+        hash.style.cursor = 'pointer';
+        hash.title = 'Click to copy transaction hash';
+        
+        hash.addEventListener('click', function() {
+            const text = this.textContent.trim();
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = this.textContent;
+                this.textContent = '✓ Copied!';
+                setTimeout(() => {
+                    this.textContent = originalText;
+                }, 2000);
+            });
+        });
+    });
+    
+    // Animate items on scroll
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+    
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '0';
+                entry.target.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    entry.target.style.transition = 'all 0.5s ease';
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }, 100);
+                observer.unobserve(entry.target);
+            }
+        });
+    }, observerOptions);
+    
+    document.querySelectorAll('.transaction-item').forEach(item => {
+        observer.observe(item);
+    });
+</script>
+{% endblock %}

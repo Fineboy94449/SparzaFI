@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Verification Queue | Bizzy Street{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>ID & Business Verification Queue 📄</h1>
+    <p>Review and process pending KYC and seller verification submissions.</p>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>User Email</th>
+                    <th>Seller Name</th>
+                    <th>Type</th>
+                    <th>Submitted</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in verifications %}
+                <tr>
+                    <td>#{{ v.id }}</td>
+                    <td>{{ v.email }}</td>
+                    <td>{{ v.seller_name|default('N/A') }}</td>
+                    <td><span style="text-transform: capitalize;">{{ v.submission_type }}</span></td>
+                    <td>{{ v.submitted_at.split(' ')[0] }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('approve_verification', verification_id=v.id) }}" style="display: inline-block;">
+                            <button type="submit" class="btn btn-primary btn-small">Approve</button>
+                        </form>
+                        <form method="POST" action="{{ url_for('reject_verification', verification_id=v.id) }}" style="display: inline-block; margin-left: 0.5rem;">
+                            <input type="hidden" name="rejection_reason" value="Incomplete documentation">
+                            <button type="submit" class="btn btn-outline btn-small" style="border-color: var(--error-color); color: var(--error-color);">Reject</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 2rem;">
+                        <span class="status-verified">Queue is empty! All submissions reviewed. 🎉</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+{% endblock %}

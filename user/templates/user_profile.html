@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile - SparzaFI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .profile-intro {
+        color: var(--text-secondary);
+        margin-bottom: 2rem;
+    }
+
+    .profile-card {
+        text-align: center;
+    }
+
+    .profile-avatar {
+        font-size: 4rem;
+        display: block;
+        margin-bottom: 1rem;
+    }
+
+    .profile-card h2 {
+        border: none;
+        color: var(--text-primary);
+        margin-bottom: 1rem;
+    }
+
+    .profile-role {
+        font-size: 1.1rem;
+        color: var(--text-secondary);
+        margin-bottom: 1.5rem;
+    }
+
+    .profile-action-btn {
+        margin-top: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <h1>👤 My Profile</h1>
+    <p class="profile-intro">This is your public-facing profile page (or a dashboard for viewing your purchases and followers).</p>
+
+    <div class="card profile-card">
+        <span class="profile-avatar">{{ '👨‍💼' if session.user.get('is_admin') == 1 else '👤' }}</span>
+        <h2>Hello, {{ session.user.get('email', 'User') }}</h2>
+        <p class="profile-role">You are currently viewing the platform as a <strong>{{ 'Platform Administrator' if session.user.get('is_admin') == 1 else session.user.get('user_type', 'Buyer')|capitalize }}</strong>.</p>
+
+        {% if session.user.get('is_admin') == 1 %}
+        <a href="{{ url_for('admin.dashboard') }}" class="btn btn-primary profile-action-btn">Go to Admin Dashboard</a>
+        {% else %}
+        <a href="#" class="btn btn-primary profile-action-btn">View Purchase History</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

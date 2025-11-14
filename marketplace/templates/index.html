@@ -1,0 +1,1738 @@
+    {% extends "base.html" %}
+
+{% block title %}SparzaFi - Social Marketplace{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --accent-color: #06b6d4;
+        --heart-red: #ef4444;
+    }
+
+    body {
+        background: var(--bg-primary);
+        overflow-x: hidden;
+    }
+
+    /* Main Feed Container */
+    .marketplace-feed {
+        max-width: 100%;
+        padding: 1rem 0;
+    }
+
+    /* Horizontal Scrolling Seller Cards */
+    .seller-cards-container {
+        display: flex;
+        gap: 2rem;
+        padding: 1rem 2rem;
+        overflow-x: auto;
+        scroll-behavior: smooth;
+        scrollbar-width: thin;
+        scrollbar-color: var(--accent-color) var(--bg-secondary);
+    }
+
+    .seller-cards-container::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .seller-cards-container::-webkit-scrollbar-track {
+        background: var(--bg-secondary);
+    }
+
+    .seller-cards-container::-webkit-scrollbar-thumb {
+        background: var(--accent-color);
+        border-radius: 4px;
+    }
+
+    /* Individual Seller Card */
+    .seller-card {
+        flex: 0 0 400px;
+        background: var(--card-bg);
+        border: 2px solid var(--border-color);
+        border-radius: 16px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        box-shadow: var(--shadow);
+    }
+
+    .seller-card:hover {
+        border-color: var(--accent-color);
+        box-shadow: 0 8px 30px rgba(6, 182, 212, 0.3);
+        transform: translateY(-4px);
+    }
+
+    /* Seller Header */
+    .seller-header {
+        padding: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .seller-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: var(--primary-gradient);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: white;
+        flex-shrink: 0;
+    }
+
+    .seller-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .seller-name {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 0.25rem;
+    }
+
+    .seller-location {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .seller-stats {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.25rem;
+    }
+
+    .seller-followers {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .seller-rating {
+        font-size: 0.75rem;
+        color: #fbbf24;
+    }
+
+    /* Video Player */
+    .video-player {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 9/16;
+        background: #000;
+        max-height: 500px;
+    }
+
+    .video-slide {
+        display: none;
+        width: 100%;
+        height: 100%;
+        position: relative;
+    }
+
+    .video-slide.active {
+        display: block;
+    }
+
+    .video-slide video,
+    .video-slide img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .video-type-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        padding: 0.35rem 0.75rem;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 20px;
+        z-index: 10;
+    }
+
+    .video-type-badge.intro {
+        background: rgba(16, 185, 129, 0.9);
+    }
+
+    .video-type-badge.detailed {
+        background: rgba(59, 130, 246, 0.9);
+    }
+
+    .video-type-badge.conclusion {
+        background: rgba(139, 92, 246, 0.9);
+    }
+
+    /* Video Controls */
+    .video-controls {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 1rem;
+        background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+        z-index: 10;
+    }
+
+    .video-nav-arrows {
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        transform: translateY(-50%);
+        display: flex;
+        justify-content: space-between;
+        padding: 0 10px;
+        z-index: 11;
+        pointer-events: none;
+    }
+
+    .video-arrow {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        pointer-events: all;
+        font-size: 1.2rem;
+    }
+
+    .video-arrow:hover {
+        background: rgba(0, 0, 0, 0.9);
+        transform: scale(1.1);
+    }
+
+    .video-dots {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 0.5rem;
+    }
+
+    .video-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.5);
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .video-dot.active {
+        width: 10px;
+        height: 10px;
+        background: white;
+    }
+
+    .video-caption {
+        color: white;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .play-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.3);
+        cursor: pointer;
+        z-index: 5;
+    }
+
+    .play-button-large {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.95);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s;
+    }
+
+    .play-button-large:hover {
+        background: white;
+        transform: scale(1.1);
+    }
+
+    .play-button-large::after {
+        content: '';
+        width: 0;
+        height: 0;
+        border-left: 25px solid #000;
+        border-top: 15px solid transparent;
+        border-bottom: 15px solid transparent;
+        margin-left: 5px;
+    }
+
+    /* Action Buttons */
+    .action-buttons {
+        padding: 1rem;
+        display: flex;
+        gap: 0.75rem;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .action-btn {
+        flex: 1;
+        padding: 0.65rem;
+        border-radius: 8px;
+        border: none;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .action-btn.like-btn {
+        background: var(--object-bg);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+    }
+
+    .action-btn.like-btn.liked {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--heart-red);
+        border-color: var(--heart-red);
+    }
+
+    .action-btn.like-btn:hover {
+        background: rgba(239, 68, 68, 0.1);
+        border-color: var(--heart-red);
+    }
+
+    .action-btn.chat-btn {
+        background: rgba(6, 182, 212, 0.1);
+        color: var(--accent-color);
+        border: 1px solid var(--accent-color);
+    }
+
+    .action-btn.chat-btn:hover {
+        background: var(--accent-color);
+        color: white;
+    }
+
+    .action-btn.review-btn {
+        background: rgba(251, 191, 36, 0.1);
+        color: #fbbf24;
+        border: 1px solid #fbbf24;
+    }
+
+    .action-btn.review-btn:hover {
+        background: #fbbf24;
+        color: #000;
+    }
+
+    .action-btn.shop-btn {
+        background: var(--primary-gradient);
+        color: white;
+        border: none;
+    }
+
+    .action-btn.shop-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .seller-card {
+            flex: 0 0 90vw;
+        }
+
+        .seller-cards-container {
+            padding: 1rem;
+            gap: 1rem;
+        }
+
+        .action-buttons {
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            flex: 0 0 calc(50% - 0.375rem);
+        }
+    }
+
+    /* Loading State */
+    .loading-state {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-muted);
+    }
+
+    /* Follow Button */
+    .follow-btn {
+        padding: 0.35rem 0.85rem;
+        background: var(--primary-gradient);
+        color: white;
+        border: none;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .follow-btn.following {
+        background: var(--object-bg);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+    }
+
+    .follow-btn:hover {
+        transform: scale(1.05);
+    }
+
+    /* Floating Shopping Window Modal */
+    .shop-modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+        padding: 1rem;
+        backdrop-filter: blur(4px);
+        animation: fadeIn 0.3s ease;
+    }
+
+    .shop-modal-overlay.active {
+        display: flex;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    .shop-modal {
+        background: var(--card-bg);
+        border-radius: 20px;
+        max-width: 900px;
+        width: 100%;
+        max-height: 90vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        animation: slideUp 0.4s ease;
+        border: 2px solid var(--border-color);
+    }
+
+    @keyframes slideUp {
+        from {
+            transform: translateY(50px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    /* Modal Header */
+    .shop-modal-header {
+        padding: 1.5rem;
+        border-bottom: 2px solid var(--border-color);
+        flex-shrink: 0;
+    }
+
+    .shop-banner {
+        width: 100%;
+        height: 120px;
+        background: var(--primary-gradient);
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: white;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .shop-banner::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        animation: shimmer 3s infinite;
+    }
+
+    @keyframes shimmer {
+        0% { left: -100%; }
+        100% { left: 100%; }
+    }
+
+    .shop-seller-info {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+
+    .shop-seller-left {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex: 1;
+    }
+
+    .shop-seller-logo {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background: var(--primary-gradient);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        font-weight: 700;
+        color: white;
+        border: 3px solid var(--card-bg);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        flex-shrink: 0;
+    }
+
+    .shop-seller-details {
+        flex: 1;
+    }
+
+    .shop-seller-name {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 0.25rem;
+    }
+
+    .shop-seller-meta {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.9rem;
+        color: var(--text-muted);
+    }
+
+    .shop-chat-btn {
+        padding: 0.75rem 1.5rem;
+        background: var(--accent-color);
+        color: white;
+        border: none;
+        border-radius: 25px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+    }
+
+    .shop-chat-btn:hover {
+        background: #0891b2;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(6, 182, 212, 0.4);
+    }
+
+    .shop-close-btn {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.5);
+        color: white;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s;
+        z-index: 10;
+    }
+
+    .shop-close-btn:hover {
+        background: rgba(0, 0, 0, 0.8);
+        transform: rotate(90deg);
+    }
+
+    /* Modal Body - Product Catalog */
+    .shop-modal-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.5rem;
+    }
+
+    .shop-modal-body::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .shop-modal-body::-webkit-scrollbar-track {
+        background: var(--bg-secondary);
+    }
+
+    .shop-modal-body::-webkit-scrollbar-thumb {
+        background: var(--accent-color);
+        border-radius: 4px;
+    }
+
+    .products-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .product-card {
+        background: var(--object-bg);
+        border: 2px solid var(--border-color);
+        border-radius: 12px;
+        overflow: hidden;
+        transition: all 0.3s;
+        cursor: pointer;
+    }
+
+    .product-card:hover {
+        border-color: var(--accent-color);
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(6, 182, 212, 0.2);
+    }
+
+    .product-image {
+        width: 100%;
+        aspect-ratio: 1;
+        object-fit: cover;
+        background: var(--bg-secondary);
+    }
+
+    .product-info {
+        padding: 1rem;
+    }
+
+    .product-name {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .product-price {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--accent-color);
+        margin-bottom: 0.75rem;
+    }
+
+    .add-to-cart-btn {
+        width: 100%;
+        padding: 0.65rem;
+        background: var(--primary-gradient);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .add-to-cart-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .add-to-cart-btn:active {
+        transform: scale(0.95);
+    }
+
+    .add-to-cart-btn.added {
+        background: #10b981;
+    }
+
+    /* Empty State */
+    .empty-products {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-muted);
+    }
+
+    .empty-products-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+
+    /* Responsive Modal */
+    @media (max-width: 768px) {
+        .shop-modal {
+            max-width: 100%;
+            max-height: 100vh;
+            border-radius: 0;
+        }
+
+        .products-grid {
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+
+        .shop-seller-info {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .shop-chat-btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .shop-banner {
+            height: 80px;
+        }
+
+        .shop-seller-name {
+            font-size: 1.25rem;
+        }
+    }
+
+    /* Review Modal Styles */
+    .review-modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 2000;
+        justify-content: center;
+        align-items: center;
+        padding: 1rem;
+        backdrop-filter: blur(6px);
+        animation: fadeIn 0.3s ease;
+    }
+
+    .review-modal-overlay.active {
+        display: flex;
+    }
+
+    .review-modal {
+        background: var(--card-bg);
+        border-radius: 20px;
+        max-width: 600px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        animation: slideUp 0.4s ease;
+        border: 2px solid var(--accent-color);
+        position: relative;
+    }
+
+    .review-modal-header {
+        padding: 1.5rem;
+        border-bottom: 2px solid var(--border-color);
+        position: sticky;
+        top: 0;
+        background: var(--card-bg);
+        z-index: 1;
+    }
+
+    .review-modal-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .review-seller-name {
+        font-size: 1rem;
+        color: var(--text-secondary);
+    }
+
+    .review-close-btn {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: rgba(255, 255, 255, 0.1);
+        border: none;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        font-size: 1.5rem;
+        color: var(--text-primary);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: var(--transition);
+    }
+
+    .review-close-btn:hover {
+        background: var(--accent-color);
+        transform: rotate(90deg);
+    }
+
+    .review-modal-body {
+        padding: 1.5rem;
+    }
+
+    .review-form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .review-form-label {
+        display: block;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .rating-input {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .rating-star {
+        font-size: 2rem;
+        cursor: pointer;
+        transition: var(--transition);
+        opacity: 0.3;
+    }
+
+    .rating-star.selected,
+    .rating-star:hover,
+    .rating-star:hover ~ .rating-star {
+        opacity: 1;
+    }
+
+    .review-textarea {
+        width: 100%;
+        min-height: 120px;
+        padding: 1rem;
+        background: var(--input-bg);
+        border: 2px solid var(--border-color);
+        border-radius: 12px;
+        color: var(--text-primary);
+        font-size: 1rem;
+        resize: vertical;
+        font-family: inherit;
+    }
+
+    .review-textarea:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
+    }
+
+    .review-char-count {
+        text-align: right;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-top: 0.25rem;
+    }
+
+    .review-submit-btn {
+        width: 100%;
+        padding: 1rem;
+        background: var(--accent-gradient);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+
+    .review-submit-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(6, 182, 212, 0.4);
+    }
+
+    .review-submit-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .review-message {
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        text-align: center;
+        font-weight: 500;
+    }
+
+    .review-message.success {
+        background: rgba(16, 185, 129, 0.2);
+        color: #10b981;
+        border: 1px solid #10b981;
+    }
+
+    .review-message.error {
+        background: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+        border: 1px solid #ef4444;
+    }
+
+    @media (max-width: 768px) {
+        .review-modal {
+            max-width: 100%;
+            max-height: 100vh;
+            border-radius: 0;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="marketplace-feed">
+    {% if sellers %}
+    <!-- Horizontal Scrolling Seller Cards -->
+    <div class="seller-cards-container">
+        {% for seller in sellers %}
+        <div class="seller-card" data-seller-id="{{ seller.id }}">
+            <!-- Seller Header -->
+            <div class="seller-header">
+                <div class="seller-avatar">{{ seller.profile_initial or seller.name[0]|upper }}</div>
+                <div class="seller-info">
+                    <div class="seller-name">{{ seller.name }}</div>
+                    <div class="seller-location">📍 {{ seller.location }}</div>
+                </div>
+                <div class="seller-stats">
+                    <button class="follow-btn {% if seller.is_following %}following{% endif %}"
+                            data-seller-id="{{ seller.id }}"
+                            onclick="toggleFollow({{ seller.id }}, this)">
+                        {% if seller.is_following %}Following{% else %}Follow{% endif %}
+                    </button>
+                    <div class="seller-followers">{{ seller.follower_count }} followers</div>
+                    <div class="seller-rating">⭐ {{ seller.avg_rating|default(5.0)|round(1) }}</div>
+                </div>
+            </div>
+
+            <!-- Video Player -->
+            <div class="video-player" data-seller-id="{{ seller.id }}">
+                {% if seller.videos %}
+                    {% for video in seller.videos %}
+                    <div class="video-slide {% if loop.first %}active{% endif %}" data-video-id="{{ video.id }}">
+                        <div class="video-type-badge {{ video.video_type }}">
+                            {% if video.video_type == 'intro' %}🎬 Intro
+                            {% elif video.video_type == 'detailed' %}📖 Details
+                            {% else %}👋 Wrap-up{% endif %}
+                        </div>
+
+                        {% if video.video_url %}
+                        <video preload="metadata" poster="{{ video.thumbnail_url or '' }}">
+                            <source src="{{ video.video_url }}" type="video/mp4">
+                        </video>
+                        {% else %}
+                        <img src="https://placehold.co/400x700/667eea/ffffff?text={{ video.title|urlencode }}"
+                             alt="{{ video.title }}">
+                        {% endif %}
+
+                        <div class="play-overlay" onclick="playVideo(this)">
+                            <div class="play-button-large"></div>
+                        </div>
+
+                        <div class="video-controls">
+                            <div class="video-dots">
+                                {% for v in seller.videos %}
+                                <div class="video-dot {% if loop.first and video.id == v.id %}active{% endif %}"
+                                     onclick="changeVideo({{ seller.id }}, {{ loop.index0 }})"></div>
+                                {% endfor %}
+                            </div>
+                            <div class="video-caption">
+                                <strong>{{ video.title }}</strong><br>
+                                {{ video.caption }}
+                            </div>
+                        </div>
+
+                        <div class="video-nav-arrows">
+                            <button class="video-arrow" onclick="navigateVideo({{ seller.id }}, -1)">◄</button>
+                            <button class="video-arrow" onclick="navigateVideo({{ seller.id }}, 1)">►</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="video-slide active">
+                        <img src="https://placehold.co/400x700/667eea/ffffff?text=No+Videos" alt="No videos">
+                        <div class="video-controls">
+                            <div class="video-caption">No videos available</div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button class="action-btn like-btn {% if seller.is_liked %}liked{% endif %}"
+                        data-seller-id="{{ seller.id }}"
+                        onclick="toggleLike({{ seller.id }}, this)">
+                    <span>❤️</span>
+                    <span class="like-count">{{ seller.likes_count }}</span>
+                </button>
+
+                <button class="action-btn chat-btn" onclick="openChat({{ seller.id }}, '{{ seller.name }}')">
+                    💬 Chat
+                </button>
+
+                <button class="action-btn review-btn"
+                        data-seller-id="{{ seller.id }}"
+                        data-seller-name="{{ seller.name|replace("'", "&#39;")|replace('"', '&quot;') }}"
+                        onclick="openReviewModal({{ seller.id }}, '{{ seller.name|replace("'", "&#39;")|replace('"', '&quot;') }}')">
+                    ⭐ Reviews
+                </button>
+
+                <button class="action-btn shop-btn"
+                        data-seller-id="{{ seller.id }}"
+                        data-seller-name="{{ seller.name|replace("'", "&#39;")|replace('"', '&quot;') }}"
+                        data-seller-location="{{ seller.location|replace("'", "&#39;")|replace('"', '&quot;') }}"
+                        data-seller-rating="{{ seller.avg_rating|default(5.0)|round(1) }}"
+                        data-seller-followers="{{ seller.follower_count }}"
+                        data-seller-initial="{{ seller.profile_initial or seller.name[0]|upper }}"
+                        data-seller-handle="{{ seller.handle }}"
+                        onclick="openShopModal(this)">
+                    🛍️ Shop
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="loading-state">
+        <h2>No sellers available</h2>
+        <p>Check back soon for new sellers!</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Floating Shopping Window Modal -->
+<div class="shop-modal-overlay" id="shopModal">
+    <div class="shop-modal">
+        <button class="shop-close-btn" onclick="closeShopModal()">×</button>
+
+        <!-- Modal Header -->
+        <div class="shop-modal-header">
+            <div class="shop-banner" id="shopBanner">
+                Special Offers & Promotions!
+            </div>
+
+            <div class="shop-seller-info">
+                <div class="shop-seller-left">
+                    <div class="shop-seller-logo" id="shopSellerLogo">S</div>
+                    <div class="shop-seller-details">
+                        <div class="shop-seller-name" id="shopSellerName">Seller Name</div>
+                        <div class="shop-seller-meta">
+                            <span id="shopSellerLocation">📍 Location</span>
+                            <span id="shopSellerRating">⭐ 5.0</span>
+                            <span id="shopSellerFollowers">0 followers</span>
+                        </div>
+                    </div>
+                </div>
+                <button class="shop-chat-btn" id="shopChatBtn">
+                    💬 Chat with Seller
+                </button>
+            </div>
+        </div>
+
+        <!-- Modal Body - Product Catalog -->
+        <div class="shop-modal-body">
+            <div class="products-grid" id="productsGrid">
+                <!-- Products will be loaded here dynamically -->
+                <div class="empty-products">
+                    <div class="empty-products-icon">📦</div>
+                    <h3>Loading products...</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Floating Review Modal -->
+<div class="review-modal-overlay" id="reviewModal">
+    <div class="review-modal">
+        <button class="review-close-btn" onclick="closeReviewModal()">×</button>
+
+        <!-- Modal Header -->
+        <div class="review-modal-header">
+            <h2 class="review-modal-title">⭐ Write a Review</h2>
+            <p class="review-seller-name" id="reviewSellerName">Seller Name</p>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="review-modal-body">
+            <div id="reviewMessage" class="review-message" style="display: none;"></div>
+
+            <form id="reviewForm" onsubmit="submitReview(event)">
+                <input type="hidden" id="reviewSellerId" name="seller_id">
+
+                <!-- Rating -->
+                <div class="review-form-group">
+                    <label class="review-form-label">Rating</label>
+                    <div class="rating-input" id="ratingInput">
+                        <span class="rating-star" data-rating="1" onclick="selectRating(1)">⭐</span>
+                        <span class="rating-star" data-rating="2" onclick="selectRating(2)">⭐</span>
+                        <span class="rating-star" data-rating="3" onclick="selectRating(3)">⭐</span>
+                        <span class="rating-star" data-rating="4" onclick="selectRating(4)">⭐</span>
+                        <span class="rating-star" data-rating="5" onclick="selectRating(5)">⭐</span>
+                    </div>
+                    <input type="hidden" id="ratingValue" name="rating" value="5" required>
+                </div>
+
+                <!-- Review Text -->
+                <div class="review-form-group">
+                    <label class="review-form-label">Your Review</label>
+                    <textarea
+                        id="reviewText"
+                        name="review_text"
+                        class="review-textarea"
+                        placeholder="Share your experience with this seller..."
+                        maxlength="500"
+                        required
+                    ></textarea>
+                    <div class="review-char-count">
+                        <span id="charCount">0</span>/500 characters
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="review-submit-btn" id="reviewSubmitBtn">
+                    Submit Review
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Navigate between videos
+function navigateVideo(sellerId, direction) {
+    const card = document.querySelector(`.seller-card[data-seller-id="${sellerId}"]`);
+    const player = card.querySelector('.video-player');
+    const slides = player.querySelectorAll('.video-slide');
+    const dots = player.querySelectorAll('.video-dot');
+
+    let currentIndex = Array.from(slides).findIndex(s => s.classList.contains('active'));
+    let newIndex = currentIndex + direction;
+
+    if (newIndex < 0) newIndex = slides.length - 1;
+    if (newIndex >= slides.length) newIndex = 0;
+
+    slides[currentIndex].classList.remove('active');
+    slides[newIndex].classList.add('active');
+
+    dots[currentIndex].classList.remove('active');
+    dots[newIndex].classList.add('active');
+
+    // Pause any playing video
+    const video = slides[currentIndex].querySelector('video');
+    if (video) {
+        video.pause();
+        slides[currentIndex].querySelector('.play-overlay').style.display = 'flex';
+    }
+}
+
+// Change to specific video
+function changeVideo(sellerId, index) {
+    const card = document.querySelector(`.seller-card[data-seller-id="${sellerId}"]`);
+    const player = card.querySelector('.video-player');
+    const slides = player.querySelectorAll('.video-slide');
+    const dots = player.querySelectorAll('.video-dot');
+
+    const currentIndex = Array.from(slides).findIndex(s => s.classList.contains('active'));
+    if (currentIndex === index) return;
+
+    slides[currentIndex].classList.remove('active');
+    slides[index].classList.add('active');
+
+    dots[currentIndex].classList.remove('active');
+    dots[index].classList.add('active');
+
+    // Pause any playing video
+    const video = slides[currentIndex].querySelector('video');
+    if (video) {
+        video.pause();
+        slides[currentIndex].querySelector('.play-overlay').style.display = 'flex';
+    }
+}
+
+// Play video
+function playVideo(overlay) {
+    const slide = overlay.closest('.video-slide');
+    const video = slide.querySelector('video');
+
+    if (video) {
+        video.play();
+        overlay.style.display = 'none';
+
+        video.onended = () => {
+            overlay.style.display = 'flex';
+        };
+
+        video.onpause = () => {
+            if (!video.ended) {
+                overlay.style.display = 'flex';
+            }
+        };
+    }
+}
+
+// Toggle Follow
+async function toggleFollow(sellerId, button) {
+    {% if not current_user %}
+    alert('Please log in to follow sellers');
+    window.location.href = '{{ url_for("auth.login") }}';
+    return;
+    {% endif %}
+
+    try {
+        const response = await fetch(`/follow/${sellerId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            if (data.following) {
+                button.classList.add('following');
+                button.textContent = 'Following';
+            } else {
+                button.classList.remove('following');
+                button.textContent = 'Follow';
+            }
+
+            // Update follower count
+            const followerCount = button.parentElement.querySelector('.seller-followers');
+            const currentCount = parseInt(followerCount.textContent);
+            followerCount.textContent = `${data.following ? currentCount + 1 : currentCount - 1} followers`;
+        }
+    } catch (error) {
+        console.error('Error toggling follow:', error);
+        alert('Failed to update follow status');
+    }
+}
+
+// Toggle Like
+async function toggleLike(sellerId, button) {
+    {% if not current_user %}
+    alert('Please log in to like sellers');
+    window.location.href = '{{ url_for("auth.login") }}';
+    return;
+    {% endif %}
+
+    try {
+        const response = await fetch(`/like/seller/${sellerId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            const likeCount = button.querySelector('.like-count');
+            likeCount.textContent = data.likes_count;
+
+            if (data.liked) {
+                button.classList.add('liked');
+            } else {
+                button.classList.remove('liked');
+            }
+        }
+    } catch (error) {
+        console.error('Error toggling like:', error);
+        alert('Failed to update like status');
+    }
+}
+
+// Open Chat
+function openChat(sellerId, sellerName) {
+    {% if not current_user %}
+    alert('Please log in to chat with sellers');
+    window.location.href = '{{ url_for("auth.login") }}';
+    return;
+    {% endif %}
+
+    alert(`Chat with ${sellerName} coming soon! This will open a direct message window.`);
+    // TODO: Implement chat modal or redirect to chat page
+}
+
+// Pause all videos when scrolling
+let scrollTimeout;
+document.querySelector('.seller-cards-container').addEventListener('scroll', () => {
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(() => {
+        document.querySelectorAll('video').forEach(video => {
+            if (!video.paused) {
+                video.pause();
+                const slide = video.closest('.video-slide');
+                if (slide) {
+                    slide.querySelector('.play-overlay').style.display = 'flex';
+                }
+            }
+        });
+    }, 150);
+});
+
+// Floating Shopping Window Functions
+let currentSellerId = null;
+
+function openShopModal(button) {
+    // Get seller info from data attributes
+    const sellerId = parseInt(button.dataset.sellerId);
+    const sellerName = button.dataset.sellerName;
+    const sellerLocation = button.dataset.sellerLocation;
+    const sellerRating = parseFloat(button.dataset.sellerRating);
+    const followers = parseInt(button.dataset.sellerFollowers);
+    const initial = button.dataset.sellerInitial;
+    const handle = button.dataset.sellerHandle;
+
+    currentSellerId = sellerId;
+
+    // Update modal header with seller info
+    document.getElementById('shopSellerName').textContent = sellerName;
+    document.getElementById('shopSellerLocation').textContent = '📍 ' + sellerLocation;
+    document.getElementById('shopSellerRating').textContent = '⭐ ' + sellerRating;
+    document.getElementById('shopSellerFollowers').textContent = followers + ' followers';
+    document.getElementById('shopSellerLogo').textContent = initial;
+
+    // Update banner text
+    document.getElementById('shopBanner').textContent = `${sellerName}'s Shop`;
+
+    // Update chat button
+    document.getElementById('shopChatBtn').onclick = () => openChat(sellerId, sellerName);
+
+    // Show modal with animation
+    const modal = document.getElementById('shopModal');
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+
+    // Load products for this seller
+    loadSellerProducts(sellerId, handle);
+}
+
+function closeShopModal() {
+    const modal = document.getElementById('shopModal');
+    modal.classList.remove('active');
+    document.body.style.overflow = '';
+    currentSellerId = null;
+}
+
+// Close modal when clicking outside
+document.getElementById('shopModal').addEventListener('click', (e) => {
+    if (e.target.id === 'shopModal') {
+        closeShopModal();
+    }
+});
+
+// Close modal with Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && currentSellerId !== null) {
+        closeShopModal();
+    }
+});
+
+// Helper function to escape HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function loadSellerProducts(sellerId, handle) {
+    const productsGrid = document.getElementById('productsGrid');
+
+    // Show loading state
+    productsGrid.innerHTML = `
+        <div class="empty-products">
+            <div class="empty-products-icon">⏳</div>
+            <h3>Loading products...</h3>
+        </div>
+    `;
+
+    try {
+        // Fetch products from the backend
+        const response = await fetch(`/seller/${sellerId}/products`);
+
+        if (!response.ok) {
+            throw new Error('Failed to load products');
+        }
+
+        const data = await response.json();
+        const products = data.products || [];
+
+        if (products.length === 0) {
+            productsGrid.innerHTML = `
+                <div class="empty-products">
+                    <div class="empty-products-icon">📦</div>
+                    <h3>No products available</h3>
+                    <p>This seller hasn't added any products yet.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Display products - create elements safely
+        productsGrid.innerHTML = '';
+        products.forEach(product => {
+            const card = document.createElement('div');
+            card.className = 'product-card';
+            card.dataset.productId = product.id;
+
+            const img = document.createElement('img');
+            img.src = product.image_url || `https://placehold.co/200x200/667eea/ffffff?text=${encodeURIComponent(product.name)}`;
+            img.alt = product.name;
+            img.className = 'product-image';
+            img.onerror = function() { this.src = 'https://placehold.co/200x200/667eea/ffffff?text=Product'; };
+
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'product-info';
+
+            const nameDiv = document.createElement('div');
+            nameDiv.className = 'product-name';
+            nameDiv.title = product.name;
+            nameDiv.textContent = product.name;
+
+            const priceDiv = document.createElement('div');
+            priceDiv.className = 'product-price';
+            priceDiv.textContent = `R${parseFloat(product.price).toFixed(2)}`;
+
+            const button = document.createElement('button');
+            button.className = 'add-to-cart-btn';
+            button.innerHTML = '🛒 Add to Cart';
+            button.onclick = function() { addToCart(product.id, product.name, product.price, this); };
+
+            infoDiv.appendChild(nameDiv);
+            infoDiv.appendChild(priceDiv);
+            infoDiv.appendChild(button);
+
+            card.appendChild(img);
+            card.appendChild(infoDiv);
+
+            productsGrid.appendChild(card);
+        });
+
+    } catch (error) {
+        console.error('Error loading products:', error);
+        productsGrid.innerHTML = `
+            <div class="empty-products">
+                <div class="empty-products-icon">⚠️</div>
+                <h3>Failed to load products</h3>
+                <p>Please try again later.</p>
+            </div>
+        `;
+    }
+}
+
+async function addToCart(productId, productName, price, button) {
+    // Disable button to prevent double-clicks
+    button.disabled = true;
+    const originalText = button.innerHTML;
+    button.innerHTML = '⏳ Adding...';
+
+    try {
+        const response = await fetch('/cart/add', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                product_id: productId,
+                quantity: 1
+            })
+        });
+
+        const data = await response.json();
+
+        // Check for authentication error
+        if (response.status === 401 || (data.error && data.error === 'Login required')) {
+            alert('Please log in to add items to your cart');
+            window.location.href = '{{ url_for("auth.login") }}';
+            return;
+        }
+
+        if (data.success) {
+            // Success animation
+            button.classList.add('added');
+            button.innerHTML = '✓ Added!';
+
+            // Show success feedback
+            showCartNotification(productName);
+
+            // Reset button after 2 seconds
+            setTimeout(() => {
+                button.classList.remove('added');
+                button.innerHTML = originalText;
+                button.disabled = false;
+            }, 2000);
+        } else {
+            throw new Error(data.message || 'Failed to add to cart');
+        }
+    } catch (error) {
+        console.error('Error adding to cart:', error);
+        alert('Failed to add item to cart. Please try again.');
+        button.innerHTML = originalText;
+        button.disabled = false;
+    }
+}
+
+function showCartNotification(productName) {
+    // Create a floating notification
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+        z-index: 10000;
+        animation: slideInRight 0.4s ease, fadeOut 0.4s ease 2.6s;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    `;
+    notification.innerHTML = `
+        <span style="font-size: 1.5rem;">✓</span>
+        <span>${productName} added to cart!</span>
+    `;
+
+    document.body.appendChild(notification);
+
+    // Remove notification after 3 seconds
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+// Add animation keyframes
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideInRight {
+        from {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    @keyframes fadeOut {
+        from {
+            opacity: 1;
+        }
+        to {
+            opacity: 0;
+        }
+    }
+`;
+document.head.appendChild(style);
+
+// === Review Modal Functions ===
+let currentReviewSellerId = null;
+let currentReviewSellerName = null;
+let selectedRating = 5;
+
+// Open review modal
+function openReviewModal(sellerId, sellerName) {
+    currentReviewSellerId = sellerId;
+    currentReviewSellerName = sellerName;
+
+    document.getElementById('reviewSellerId').value = sellerId;
+    document.getElementById('reviewSellerName').textContent = sellerName;
+    document.getElementById('reviewModal').classList.add('active');
+
+    // Reset form
+    document.getElementById('reviewForm').reset();
+    document.getElementById('reviewMessage').style.display = 'none';
+    selectRating(5); // Default 5 stars
+    updateCharCount();
+
+    // Prevent body scroll
+    document.body.style.overflow = 'hidden';
+}
+
+// Close review modal
+function closeReviewModal() {
+    document.getElementById('reviewModal').classList.remove('active');
+    document.body.style.overflow = 'auto';
+    currentReviewSellerId = null;
+    currentReviewSellerName = null;
+}
+
+// Select rating
+function selectRating(rating) {
+    selectedRating = rating;
+    document.getElementById('ratingValue').value = rating;
+
+    // Update star display
+    const stars = document.querySelectorAll('.rating-star');
+    stars.forEach((star, index) => {
+        if (index < rating) {
+            star.classList.add('selected');
+        } else {
+            star.classList.remove('selected');
+        }
+    });
+}
+
+// Update character count
+function updateCharCount() {
+    const textarea = document.getElementById('reviewText');
+    const charCount = document.getElementById('charCount');
+    charCount.textContent = textarea.value.length;
+}
+
+// Character count listener
+document.addEventListener('DOMContentLoaded', function() {
+    const reviewTextarea = document.getElementById('reviewText');
+    if (reviewTextarea) {
+        reviewTextarea.addEventListener('input', updateCharCount);
+    }
+
+    // Close modal when clicking outside
+    document.getElementById('reviewModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeReviewModal();
+        }
+    });
+});
+
+// Submit review
+async function submitReview(event) {
+    event.preventDefault();
+
+    const sellerId = document.getElementById('reviewSellerId').value;
+    const rating = document.getElementById('ratingValue').value;
+    const reviewText = document.getElementById('reviewText').value.trim();
+    const submitBtn = document.getElementById('reviewSubmitBtn');
+    const messageDiv = document.getElementById('reviewMessage');
+
+    // Validation
+    if (!reviewText) {
+        showReviewMessage('Please write a review', 'error');
+        return;
+    }
+
+    if (reviewText.length < 10) {
+        showReviewMessage('Review must be at least 10 characters', 'error');
+        return;
+    }
+
+    // Disable submit button
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+
+    try {
+        const response = await fetch('/submit-review', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                seller_id: sellerId,
+                rating: rating,
+                review_text: reviewText
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showReviewMessage(data.message || 'Review submitted successfully!', 'success');
+            setTimeout(() => {
+                closeReviewModal();
+            }, 2000);
+        } else {
+            showReviewMessage(data.error || 'Failed to submit review', 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Review';
+        }
+    } catch (error) {
+        console.error('Error submitting review:', error);
+        showReviewMessage('Network error. Please try again.', 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Review';
+    }
+}
+
+// Show review message
+function showReviewMessage(message, type) {
+    const messageDiv = document.getElementById('reviewMessage');
+    messageDiv.textContent = message;
+    messageDiv.className = `review-message ${type}`;
+    messageDiv.style.display = 'block';
+
+    // Auto-hide success messages
+    if (type === 'success') {
+        setTimeout(() => {
+            messageDiv.style.display = 'none';
+        }, 3000);
+    }
+}
+</script>
+{% endblock %}

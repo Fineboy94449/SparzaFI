@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3:*)",
+      "Bash(pkill:*)",
+      "Bash(curl:*)",
+      "Bash(xargs:*)",
+      "Bash(lsof:*)",
+      "Bash(find:*)",
+      "Bash(tree:*)",
+      "Bash(rm:*)",
+      "Bash(source .venv/bin/activate)",
+      "Bash(sqlite3:*)",
+      "Bash(timeout 5 python3:*)",
+      "Bash(cat:*)",
+      "Bash(mkdir:*)",
+      "Bash(chmod:*)",
+      "Bash(./install_cli.sh)",
+      "Bash(source ~/.bashrc)",
+      "Bash(alias:*)",
+      "Bash(./sparzafitest1 --help)",
+      "Bash(ngrok version:*)",
+      "Bash(sudo tee:*)",
+      "Bash(sudo apt update:*)",
+      "Bash(sudo apt install:*)",
+      "Bash(ngrok http:*)",
+      "Bash(npm --version:*)",
+      "Bash(npm install:*)",
+      "Bash(npx localtunnel:*)",
+      "mcp__ide__getDiagnostics"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

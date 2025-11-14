@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Account Settings - SparzaFI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .settings-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .settings-intro {
+        color: var(--text-secondary);
+        margin-bottom: 2rem;
+    }
+
+    .settings-card h2 {
+        color: var(--text-primary);
+        margin-bottom: 1.5rem;
+    }
+
+    .settings-card p {
+        color: var(--text-primary);
+        margin-bottom: 0.75rem;
+    }
+
+    .settings-card p strong {
+        color: var(--text-primary);
+    }
+
+    .settings-action-btn {
+        margin-top: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="settings-container">
+    <h1>⚙️ Account Settings</h1>
+    <p class="settings-intro">Manage your profile picture, email, password, and subscription details here.</p>
+
+    <div class="card settings-card">
+        <h2>Profile Information</h2>
+        <p><strong>Email:</strong> {{ session.user.get('email', 'N/A') }}</p>
+        <p><strong>Account Type:</strong> {{ 'Admin' if session.user.get('is_admin') == 1 else session.user.get('user_type', 'Buyer')|capitalize }}</p>
+        <p><strong>KYC Status:</strong> {{ 'Completed' if session.user.get('kyc_completed') == 1 else 'Pending' }}</p>
+
+        <a href="#" class="btn btn-primary btn-small settings-action-btn">Update Profile Picture</a>
+    </div>
+
+    <div class="card settings-card">
+        <h2>Security</h2>
+        <a href="#" class="btn btn-outline btn-small">Change Password</a>
+    </div>
+</div>
+{% endblock %}

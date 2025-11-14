@@ -1,0 +1,447 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Routes - SparzaFI Deliverer{% endblock %}
+
+{% block extra_css %}
+<style>
+    .route-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        transition: var(--transition);
+    }
+
+    .route-card:hover {
+        border-color: rgba(255, 255, 255, 0.15);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    }
+
+    .route-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+
+    .route-info {
+        flex: 1;
+    }
+
+    .route-number {
+        display: inline-block;
+        background: var(--accent-gradient);
+        color: white;
+        padding: 0.35rem 0.75rem;
+        border-radius: 6px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .route-name {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+    }
+
+    .route-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .detail-item {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .detail-label {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.25rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .detail-value {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .route-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 2000;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+
+    .modal.show {
+        display: flex;
+    }
+
+    .modal-content {
+        background: var(--dark-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        max-width: 600px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        padding: 2rem;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .modal-header h2 {
+        margin: 0;
+        font-size: 1.5rem;
+    }
+
+    .close-modal {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+        transition: var(--transition);
+    }
+
+    .close-modal:hover {
+        color: var(--text-primary);
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    @media (max-width: 768px) {
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+
+        .route-details {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <div>
+            <h1>📍 My Delivery Routes</h1>
+            <p>Manage your routes, pricing, and service areas (walking, cycling, riding, or driving)</p>
+        </div>
+        <button onclick="openAddRouteModal()" class="btn btn-primary">
+            ➕ Add New Route
+        </button>
+    </div>
+
+    {% if data.routes|length == 0 %}
+    <div class="card" style="text-align: center; padding: 3rem;">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">📍</div>
+        <h2>No Routes Yet</h2>
+        <p style="margin-bottom: 2rem;">Start by adding your first delivery route to begin accepting deliveries.</p>
+        <button onclick="openAddRouteModal()" class="btn btn-primary">
+            Add Your First Route
+        </button>
+    </div>
+    {% else %}
+    <div style="display: grid; gap: 1rem;">
+        {% for route in data.routes %}
+        <div class="route-card">
+            <div class="route-header">
+                <div class="route-info">
+                    <span class="route-number">{{ route.route_no }}</span>
+                    {% if not route.is_active %}
+                    <span class="badge badge-error" style="margin-left: 0.5rem;">Inactive</span>
+                    {% elif not route.is_verified %}
+                    <span class="badge badge-warning" style="margin-left: 0.5rem;">Pending Verification</span>
+                    {% else %}
+                    <span class="badge badge-success" style="margin-left: 0.5rem;">Active</span>
+                    {% endif %}
+                    <div class="route-name">{{ route.route_name }}</div>
+                    {% if route.service_area %}
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin: 0;">
+                        Service Area: {{ route.service_area }}
+                    </p>
+                    {% endif %}
+                </div>
+                <div class="route-actions">
+                    <button onclick="editRoute({{ route.id }})" class="btn btn-small btn-outline" title="Edit Route">
+                        ✏️ Edit
+                    </button>
+                    {% if route.is_active %}
+                    <button onclick="toggleRoute({{ route.id }}, false)" class="btn btn-small btn-danger" title="Deactivate">
+                        🚫 Deactivate
+                    </button>
+                    {% else %}
+                    <button onclick="toggleRoute({{ route.id }}, true)" class="btn btn-small btn-primary" title="Activate">
+                        ✅ Activate
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="route-details">
+                <div class="detail-item">
+                    <span class="detail-label">Base Fee</span>
+                    <span class="detail-value">R{{ "%.2f"|format(route.base_fee) }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Price per KM</span>
+                    <span class="detail-value">R{{ "%.2f"|format(route.price_per_km) }}/km</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Max Distance</span>
+                    <span class="detail-value">{{ route.max_distance_km }} km</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Example (10km)</span>
+                    <span class="detail-value" style="color: var(--success-color);">
+                        R{{ "%.2f"|format(route.base_fee + (route.price_per_km * 10)) }}
+                    </span>
+                </div>
+            </div>
+
+            {% if route.description %}
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                <p style="margin: 0; font-size: 0.9rem; color: var(--text-secondary);">
+                    {{ route.description }}
+                </p>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card" style="margin-top: 2rem; background: rgba(102, 126, 234, 0.05); border-color: rgba(102, 126, 234, 0.2);">
+        <h3>💡 Pricing Guidelines</h3>
+        <ul style="margin: 1rem 0 0 1.5rem; line-height: 1.8;">
+            <li>Base Fee: R{{ "%.2f"|format(data.min_base_fee) }} - R{{ "%.2f"|format(data.max_base_fee) }}</li>
+            <li>Price per KM: R{{ "%.2f"|format(data.min_price_per_km) }} - R{{ "%.2f"|format(data.max_price_per_km) }}</li>
+            <li>Platform takes {{ (data.platform_fee_rate * 100)|int }}% commission from your delivery fee</li>
+            <li>You keep {{ (100 - (data.platform_fee_rate * 100))|int }}% of every delivery</li>
+        </ul>
+    </div>
+</div>
+
+<!-- Add/Edit Route Modal -->
+<div id="routeModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalTitle">Add New Route</h2>
+            <button class="close-modal" onclick="closeModal()">&times;</button>
+        </div>
+
+        <form id="routeForm" method="POST" action="{{ url_for('deliverer.add_route') }}">
+            <div class="form-group">
+                <label class="form-label">Route Number *</label>
+                <input type="text"
+                       name="route_no"
+                       id="route_no"
+                       class="form-control"
+                       placeholder="e.g., R541, N1, M2"
+                       required>
+                <small style="color: var(--text-secondary); font-size: 0.85rem;">Official route designation or your custom code</small>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Route Name *</label>
+                <input type="text"
+                       name="route_name"
+                       id="route_name"
+                       class="form-control"
+                       placeholder="e.g., Machadodorp to Badplaas"
+                       required>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Base Fee (R) *</label>
+                    <input type="number"
+                           name="base_fee"
+                           id="base_fee"
+                           class="form-control"
+                           min="{{ data.min_base_fee }}"
+                           max="{{ data.max_base_fee }}"
+                           step="0.50"
+                           value="{{ data.default_base_fee }}"
+                           required>
+                    <small style="color: var(--text-secondary); font-size: 0.85rem;">R{{ data.min_base_fee }} - R{{ data.max_base_fee }}</small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Price per KM (R) *</label>
+                    <input type="number"
+                           name="price_per_km"
+                           id="price_per_km"
+                           class="form-control"
+                           min="{{ data.min_price_per_km }}"
+                           max="{{ data.max_price_per_km }}"
+                           step="0.50"
+                           value="{{ data.default_price_per_km }}"
+                           required>
+                    <small style="color: var(--text-secondary); font-size: 0.85rem;">R{{ data.min_price_per_km }} - R{{ data.max_price_per_km }}/km</small>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Maximum Distance (km) *</label>
+                <input type="number"
+                       name="max_distance_km"
+                       id="max_distance_km"
+                       class="form-control"
+                       min="1"
+                       max="200"
+                       value="50"
+                       required>
+                <small style="color: var(--text-secondary); font-size: 0.85rem;">Maximum distance you'll travel for deliveries</small>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Service Area</label>
+                <input type="text"
+                       name="service_area"
+                       id="service_area"
+                       class="form-control"
+                       placeholder="e.g., Mpumalanga, Eastern Gauteng">
+                <small style="color: var(--text-secondary); font-size: 0.85rem;">General area where this route operates</small>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea name="description"
+                          id="description"
+                          class="form-control"
+                          rows="3"
+                          placeholder="Any additional details about this route..."
+                          style="resize: vertical;"></textarea>
+            </div>
+
+            <div id="pricePreview" style="background: rgba(72, 187, 120, 0.1); border: 1px solid rgba(72, 187, 120, 0.3); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem;">Price Preview (20km delivery)</h4>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--text-secondary); font-size: 0.9rem;">Buyer Pays:</span>
+                    <span id="buyerPays" style="font-weight: 700; font-size: 1.2rem; color: var(--success-color);">R0.00</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.25rem;">
+                    <span style="color: var(--text-secondary); font-size: 0.85rem;">You Earn (85%):</span>
+                    <span id="delivererEarns" style="font-weight: 600; color: var(--text-primary);">R0.00</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.25rem;">
+                    <span style="color: var(--text-secondary); font-size: 0.85rem;">Platform Fee (15%):</span>
+                    <span id="platformFee" style="font-weight: 600; color: var(--text-secondary);">R0.00</span>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 1rem;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">
+                    Save Route
+                </button>
+                <button type="button" class="btn btn-outline" onclick="closeModal()">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function openAddRouteModal() {
+        document.getElementById('modalTitle').textContent = 'Add New Route';
+        document.getElementById('routeForm').reset();
+        document.getElementById('routeModal').classList.add('show');
+        updatePricePreview();
+    }
+
+    function closeModal() {
+        document.getElementById('routeModal').classList.remove('show');
+    }
+
+    function editRoute(routeId) {
+        alert('Edit functionality coming soon! Route ID: ' + routeId);
+    }
+
+    function toggleRoute(routeId, activate) {
+        const action = activate ? 'activate' : 'deactivate';
+        if (confirm(`Are you sure you want to ${action} this route?`)) {
+            // TODO: Implement route toggle
+            alert(`Route ${action} functionality coming soon!`);
+        }
+    }
+
+    function updatePricePreview() {
+        const baseFee = parseFloat(document.getElementById('base_fee').value) || 0;
+        const pricePerKm = parseFloat(document.getElementById('price_per_km').value) || 0;
+        const distance = 20; // Example distance
+
+        const total = baseFee + (pricePerKm * distance);
+        const platformFee = total * 0.15;
+        const delivererEarns = total - platformFee;
+
+        document.getElementById('buyerPays').textContent = 'R' + total.toFixed(2);
+        document.getElementById('delivererEarns').textContent = 'R' + delivererEarns.toFixed(2);
+        document.getElementById('platformFee').textContent = 'R' + platformFee.toFixed(2);
+    }
+
+    // Update price preview on input change
+    document.addEventListener('DOMContentLoaded', function() {
+        const baseFeeInput = document.getElementById('base_fee');
+        const pricePerKmInput = document.getElementById('price_per_km');
+
+        if (baseFeeInput && pricePerKmInput) {
+            baseFeeInput.addEventListener('input', updatePricePreview);
+            pricePerKmInput.addEventListener('input', updatePricePreview);
+        }
+
+        // Close modal on escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        // Close modal on background click
+        document.getElementById('routeModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+    });
+</script>
+{% endblock %}

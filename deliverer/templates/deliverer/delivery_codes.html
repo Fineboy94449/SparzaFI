@@ -1,0 +1,527 @@
+{% extends "base.html" %}
+
+{% block title %}Delivery Verification Codes - Driver Dashboard - SparzaFI{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --accent-color: #06b6d4;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --danger-color: #ef4444;
+    }
+
+    .dashboard-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+
+    .dashboard-header {
+        background: var(--card-bg);
+        border: 2px solid var(--accent-color);
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 0 20px rgba(6, 182, 212, 0.2);
+    }
+
+    .header-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--accent-color);
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+    }
+
+    .header-subtitle {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--accent-color);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .codes-grid {
+        display: grid;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .code-card {
+        background: var(--card-bg);
+        border: 2px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1.5rem;
+        transition: all 0.3s;
+    }
+
+    .code-card:hover {
+        border-color: var(--accent-color);
+        box-shadow: 0 4px 12px rgba(6, 182, 212, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .code-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .order-id {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--accent-color);
+    }
+
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .status-transit {
+        background: var(--warning-color);
+        color: #000;
+    }
+
+    .status-picked {
+        background: #6366f1;
+        color: #fff;
+    }
+
+    .codes-section {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .code-box {
+        background: rgba(6, 182, 212, 0.1);
+        border: 2px solid var(--accent-color);
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+    }
+
+    .code-box.pickup {
+        border-color: #6366f1;
+        background: rgba(99, 102, 241, 0.1);
+    }
+
+    .code-label {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .code-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--accent-color);
+        font-family: 'Courier New', monospace;
+        letter-spacing: 0.3rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .code-box.pickup .code-value {
+        color: #6366f1;
+    }
+
+    .order-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .detail-item {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .detail-label {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.25rem;
+    }
+
+    .detail-value {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+    }
+
+    .btn-verify {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-verify:hover {
+        background: #059669;
+        transform: translateY(-2px);
+    }
+
+    .btn-navigate {
+        background: #6366f1;
+        color: white;
+    }
+
+    .btn-navigate:hover {
+        background: #4f46e5;
+        transform: translateY(-2px);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-secondary);
+    }
+
+    .empty-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+    }
+
+    .info-banner {
+        background: rgba(16, 185, 129, 0.1);
+        border-left: 4px solid var(--success-color);
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+    }
+
+    .info-banner strong {
+        color: var(--success-color);
+    }
+
+    .verification-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .verification-modal.active {
+        display: flex;
+    }
+
+    .modal-content {
+        background: var(--card-bg);
+        border: 2px solid var(--accent-color);
+        border-radius: 12px;
+        padding: 2rem;
+        max-width: 400px;
+        width: 90%;
+    }
+
+    .modal-header {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--accent-color);
+        margin-bottom: 1rem;
+        text-transform: uppercase;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: var(--text-secondary);
+        font-weight: 600;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: 1rem;
+        background: var(--bg-primary);
+        border: 2px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: 1.5rem;
+        text-align: center;
+        letter-spacing: 0.5rem;
+        font-family: 'Courier New', monospace;
+    }
+
+    .form-input:focus {
+        outline: none;
+        border-color: var(--accent-color);
+    }
+
+    .modal-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+    }
+
+    .btn-cancel {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .btn-cancel:hover {
+        background: #dc2626;
+    }
+
+    @media (max-width: 768px) {
+        .codes-section {
+            grid-template-columns: 1fr;
+        }
+
+        .order-details {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Header -->
+    <div class="dashboard-header">
+        <h1 class="header-title">Delivery Verification Codes</h1>
+        <p class="header-subtitle">View and verify buyer delivery codes for your assigned orders</p>
+    </div>
+
+    <!-- Info Banner -->
+    <div class="info-banner">
+        <strong>Delivery Process:</strong> When you arrive at the buyer's location, ask for their 6-digit delivery code.
+        Enter it here to confirm successful delivery and complete the order.
+    </div>
+
+    <!-- Active Deliveries with Codes -->
+    <h2 class="section-title">Active Deliveries ({{ orders|length }})</h2>
+
+    <div class="codes-grid">
+        {% if orders %}
+            {% for order in orders %}
+            <div class="code-card">
+                <div class="code-header">
+                    <span class="order-id">Order #{{ order.id }}</span>
+                    <span class="status-badge status-{{ 'transit' if order.status == 'IN_TRANSIT' else 'picked' }}">
+                        {{ order.status.replace('_', ' ') }}
+                    </span>
+                </div>
+
+                <!-- Code Display -->
+                <div class="codes-section">
+                    {% if order.pickup_code %}
+                    <div class="code-box pickup">
+                        <div class="code-label">Pickup Code (from Seller)</div>
+                        <div class="code-value">{{ order.pickup_code }}</div>
+                        <small style="color: var(--text-secondary);">Already verified</small>
+                    </div>
+                    {% endif %}
+
+                    {% if order.delivery_code %}
+                    <div class="code-box">
+                        <div class="code-label">Delivery Code (from Buyer)</div>
+                        <div class="code-value">{{ order.delivery_code }}</div>
+                        <small style="color: var(--text-secondary);">Ask buyer for this code</small>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Order Details -->
+                <div class="order-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Buyer</span>
+                        <span class="detail-value">{{ order.buyer_email }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Seller</span>
+                        <span class="detail-value">{{ order.seller_name }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Order Amount</span>
+                        <span class="detail-value">R{{ "%.2f"|format(order.total_amount) }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Pickup Date</span>
+                        <span class="detail-value">{{ order.timestamp[:10] }}</span>
+                    </div>
+                </div>
+
+                <!-- Delivery Address -->
+                <div class="detail-item" style="margin-bottom: 1rem;">
+                    <span class="detail-label">Delivery Address</span>
+                    <span class="detail-value">{{ order.delivery_address }}</span>
+                </div>
+
+                <!-- Actions -->
+                <div class="action-buttons">
+                    <button class="btn btn-verify" onclick="openVerifyModal({{ order.id }}, '{{ order.delivery_code }}')">
+                        ✓ Verify Delivery
+                    </button>
+                    <button class="btn btn-navigate" onclick="navigateToAddress('{{ order.delivery_address }}')">
+                        🗺️ Navigate
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">🚚</div>
+                <h3>No Active Deliveries</h3>
+                <p>You don't have any orders with delivery codes yet. Check back after picking up orders from sellers.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Verification Modal -->
+<div id="verifyModal" class="verification-modal">
+    <div class="modal-content">
+        <h2 class="modal-header">Verify Delivery Code</h2>
+        <form id="verifyForm">
+            <input type="hidden" id="verify_order_id">
+            <input type="hidden" id="expected_code">
+
+            <div class="form-group">
+                <label class="form-label">Enter 6-Digit Code from Buyer</label>
+                <input
+                    type="text"
+                    class="form-input"
+                    id="entered_code"
+                    maxlength="6"
+                    pattern="[0-9]{6}"
+                    placeholder="000000"
+                    required
+                    autocomplete="off">
+                <small style="color: var(--text-secondary); display: block; margin-top: 0.5rem;">
+                    Ask the buyer to provide their 6-digit delivery code
+                </small>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-cancel" onclick="closeVerifyModal()">Cancel</button>
+                <button type="submit" class="btn btn-verify">Confirm Delivery</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let currentOrderId = null;
+let expectedCode = null;
+
+function openVerifyModal(orderId, deliveryCode) {
+    currentOrderId = orderId;
+    expectedCode = deliveryCode;
+    document.getElementById('verify_order_id').value = orderId;
+    document.getElementById('expected_code').value = deliveryCode;
+    document.getElementById('entered_code').value = '';
+    document.getElementById('verifyModal').classList.add('active');
+    document.getElementById('entered_code').focus();
+}
+
+function closeVerifyModal() {
+    document.getElementById('verifyModal').classList.remove('active');
+    currentOrderId = null;
+    expectedCode = null;
+}
+
+// Handle verification form submission
+document.getElementById('verifyForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const orderId = document.getElementById('verify_order_id').value;
+    const enteredCode = document.getElementById('entered_code').value;
+
+    try {
+        const response = await fetch(`/deliverer/order/${orderId}/verify-code`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                code: enteredCode
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert('✓ Delivery verified successfully!');
+            closeVerifyModal();
+            location.reload();
+        } else {
+            alert('✗ Invalid code. Please check with the buyer and try again.');
+            document.getElementById('entered_code').value = '';
+            document.getElementById('entered_code').focus();
+        }
+    } catch (error) {
+        alert('Failed to verify delivery: ' + error.message);
+    }
+});
+
+// Auto-format code input (numbers only)
+document.getElementById('entered_code').addEventListener('input', (e) => {
+    e.target.value = e.target.value.replace(/[^0-9]/g, '');
+});
+
+// Navigate to address using Google Maps
+function navigateToAddress(address) {
+    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+    window.open(mapsUrl, '_blank');
+}
+
+// Close modal on background click
+document.getElementById('verifyModal').addEventListener('click', (e) => {
+    if (e.target.id === 'verifyModal') {
+        closeVerifyModal();
+    }
+});
+
+// Auto-refresh every 30 seconds
+setInterval(() => {
+    if (document.visibilityState === 'visible') {
+        location.reload();
+    }
+}, 30000);
+</script>
+{% endblock %}

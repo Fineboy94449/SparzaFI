@@ -1,0 +1,68 @@
+# SparzaFI Platform Requirements
+# Flask web framework and core dependencies
+
+# Web Framework
+Flask==3.0.0
+Werkzeug==3.0.1
+
+# Flask Extensions
+Flask-Session==0.5.0
+Flask-Mail==0.9.1
+Flask-Babel==4.0.0
+Flask-CORS==4.0.0
+Flask-Limiter==3.5.0
+
+# Database
+sqlite3  # Built-in with Python
+
+# Firebase
+firebase-admin==6.4.0  # Firebase Admin SDK for backend operations
+google-cloud-firestore==2.14.0  # Firestore database
+google-cloud-storage==2.14.0  # Firebase Storage
+
+# Security & Authentication
+PyJWT==2.8.0
+cryptography==41.0.7
+
+# Date & Time
+python-dateutil==2.8.2
+
+# Image Processing
+Pillow==10.1.0
+
+# PDF Generation (for reports)
+reportlab==4.0.7
+
+# Data Processing
+pandas==2.1.4  # For analytics
+
+# API & HTTP
+requests==2.31.0
+
+# Environment Variables
+python-dotenv==1.0.0
+
+# Testing (Development)
+pytest==7.4.3
+pytest-flask==1.3.0
+pytest-cov==4.1.0
+
+# Code Quality (Development)
+black==23.12.1
+flake8==6.1.0
+pylint==3.0.3
+
+# Utilities
+shortuuid==1.0.11
+qrcode==7.4.2
+
+# Production Server
+gunicorn==21.2.0
+gevent==23.9.1
+
+# Monitoring & Logging
+python-json-logger==2.0.7
+
+# South African Payment Integrations (Optional/Future)
+# ozow-python  # Ozow payment gateway (when available)
+# yoco-python  # Yoco payment gateway (when available)

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Admin User Management | Bizzy Street{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>User Management 👥</h1>
+    <p>View and manage all user accounts on the platform (Buyers and Sellers).</p>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Email</th>
+                    <th>Type</th>
+                    <th>KYC</th>
+                    <th>Status</th>
+                    <th>Joined</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td>#{{ u.id }}</td>
+                    <td>{{ u.email }}</td>
+                    <td><span style="text-transform: capitalize;">{{ u.user_type }}</span></td>
+                    <td>
+                        <span class="status-{{ 'verified' if u.kyc_completed else 'unverified' }}">
+                            {{ 'Completed' if u.kyc_completed else 'Pending' }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="status-{{ 'verified' if u.is_admin else 'completed' }}">
+                            {{ 'Admin' if u.is_admin else 'Active' }}
+                        </span>
+                    </td>
+                    <td>{{ u.created_at.split(' ')[0] }}</td>
+                    <td>
+                        <button class="btn btn-small btn-outline" disabled>Edit</button>
+                        <button class="btn btn-small btn-outline" style="border-color: var(--error-color); color: var(--error-color);" disabled>Suspend</button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 2rem;">No user accounts found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+{% endblock %}

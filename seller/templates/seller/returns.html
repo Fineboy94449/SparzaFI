@@ -1,0 +1,654 @@
+{% extends "base.html" %}
+
+{% block title %}Return Requests - Seller Dashboard - SparzaFI{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --accent-color: #06b6d4;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --danger-color: #ef4444;
+    }
+
+    .dashboard-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+
+    .dashboard-header {
+        background: var(--card-bg);
+        border: 2px solid var(--accent-color);
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 0 20px rgba(6, 182, 212, 0.2);
+    }
+
+    .header-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--accent-color);
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+    }
+
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--accent-color);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .returns-grid {
+        display: grid;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .return-card {
+        background: var(--card-bg);
+        border: 2px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1.5rem;
+        transition: all 0.3s;
+    }
+
+    .return-card:hover {
+        border-color: var(--accent-color);
+        box-shadow: 0 4px 12px rgba(6, 182, 212, 0.2);
+    }
+
+    .return-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .return-id {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--accent-color);
+    }
+
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .status-pending {
+        background: var(--warning-color);
+        color: #000;
+    }
+
+    .status-approved {
+        background: var(--success-color);
+        color: #fff;
+    }
+
+    .status-rejected {
+        background: var(--danger-color);
+        color: #fff;
+    }
+
+    .status-completed {
+        background: #6366f1;
+        color: #fff;
+    }
+
+    .return-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .detail-item {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .detail-label {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.25rem;
+    }
+
+    .detail-value {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .return-reason {
+        background: rgba(6, 182, 212, 0.1);
+        border-left: 3px solid var(--accent-color);
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-radius: 4px;
+    }
+
+    .return-images {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .return-image {
+        width: 80px;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 2px solid var(--border-color);
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+
+    .return-image:hover {
+        transform: scale(1.1);
+        border-color: var(--accent-color);
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+    }
+
+    .btn-approve {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-approve:hover {
+        background: #059669;
+        transform: translateY(-2px);
+    }
+
+    .btn-reject {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .btn-reject:hover {
+        background: #dc2626;
+        transform: translateY(-2px);
+    }
+
+    .btn-view {
+        background: var(--accent-color);
+        color: white;
+    }
+
+    .btn-view:hover {
+        background: #0891b2;
+        transform: translateY(-2px);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-secondary);
+    }
+
+    .empty-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+    }
+
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .modal.active {
+        display: flex;
+    }
+
+    .modal-content {
+        background: var(--card-bg);
+        border: 2px solid var(--accent-color);
+        border-radius: 12px;
+        padding: 2rem;
+        max-width: 500px;
+        width: 90%;
+    }
+
+    .modal-header {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--accent-color);
+        margin-bottom: 1rem;
+        text-transform: uppercase;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: var(--text-secondary);
+        font-weight: 600;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: 0.75rem;
+        background: var(--bg-primary);
+        border: 2px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: 1rem;
+    }
+
+    .form-input:focus {
+        outline: none;
+        border-color: var(--accent-color);
+    }
+
+    .modal-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+    }
+
+    .tabs {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    .tab {
+        padding: 1rem 2rem;
+        background: transparent;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: 600;
+        text-transform: uppercase;
+        position: relative;
+    }
+
+    .tab.active {
+        color: var(--accent-color);
+    }
+
+    .tab.active::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--accent-color);
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Header -->
+    <div class="dashboard-header">
+        <h1 class="header-title">Return Requests</h1>
+        <p class="header-subtitle">Manage buyer return and refund requests</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab active" data-tab="pending">Pending ({{ pending|length }})</button>
+        <button class="tab" data-tab="active">Active ({{ active|length }})</button>
+        <button class="tab" data-tab="completed">Completed ({{ completed|length }})</button>
+    </div>
+
+    <!-- Pending Returns -->
+    <div id="pending-tab" class="tab-content active">
+        <h2 class="section-title">Pending Approval</h2>
+        <div class="returns-grid">
+            {% if pending %}
+                {% for return in pending %}
+                <div class="return-card">
+                    <div class="return-header">
+                        <span class="return-id">Return #{{ return.id }}</span>
+                        <span class="status-badge status-pending">{{ return.status }}</span>
+                    </div>
+
+                    <div class="return-details">
+                        <div class="detail-item">
+                            <span class="detail-label">Order ID</span>
+                            <span class="detail-value">#{{ return.transaction_id }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Buyer</span>
+                            <span class="detail-value">{{ return.buyer_email }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Order Amount</span>
+                            <span class="detail-value">R{{ "%.2f"|format(return.total_amount) }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Requested</span>
+                            <span class="detail-value">{{ return.created_at[:10] }}</span>
+                        </div>
+                    </div>
+
+                    <div class="return-reason">
+                        <strong>Reason:</strong> {{ return.reason }}
+                        {% if return.description %}
+                        <br><br>
+                        <strong>Details:</strong> {{ return.description }}
+                        {% endif %}
+                    </div>
+
+                    {% if return.images %}
+                    <div class="return-images">
+                        {% for image in return.images.split(',') %}
+                        <img src="{{ image }}" alt="Return evidence" class="return-image">
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="action-buttons">
+                        <button class="btn btn-approve" onclick="approveReturn({{ return.id }}, {{ return.total_amount }})">Approve Return</button>
+                        <button class="btn btn-reject" onclick="rejectReturn({{ return.id }})">Reject</button>
+                        <a href="/order/{{ return.transaction_id }}" class="btn btn-view">View Order</a>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">✓</div>
+                    <p>No pending return requests</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Active Returns -->
+    <div id="active-tab" class="tab-content">
+        <h2 class="section-title">Active Returns</h2>
+        <div class="returns-grid">
+            {% if active %}
+                {% for return in active %}
+                <div class="return-card">
+                    <div class="return-header">
+                        <span class="return-id">Return #{{ return.id }}</span>
+                        <span class="status-badge status-approved">{{ return.status }}</span>
+                    </div>
+
+                    <div class="return-details">
+                        <div class="detail-item">
+                            <span class="detail-label">Order ID</span>
+                            <span class="detail-value">#{{ return.transaction_id }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Buyer</span>
+                            <span class="detail-value">{{ return.buyer_email }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Refund Amount</span>
+                            <span class="detail-value">R{{ "%.2f"|format(return.refund_amount) if return.refund_amount else "TBD" }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Address</span>
+                            <span class="detail-value">{{ return.delivery_address[:30] }}...</span>
+                        </div>
+                    </div>
+
+                    <div class="return-reason">
+                        <strong>Reason:</strong> {{ return.reason }}
+                    </div>
+
+                    <div class="action-buttons">
+                        <a href="/order/{{ return.transaction_id }}" class="btn btn-view">View Order</a>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">📦</div>
+                    <p>No active returns</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Completed Returns -->
+    <div id="completed-tab" class="tab-content">
+        <h2 class="section-title">Completed Returns</h2>
+        <div class="returns-grid">
+            {% if completed %}
+                {% for return in completed %}
+                <div class="return-card">
+                    <div class="return-header">
+                        <span class="return-id">Return #{{ return.id }}</span>
+                        <span class="status-badge status-{{ 'rejected' if return.status == 'REJECTED' else 'completed' }}">{{ return.status }}</span>
+                    </div>
+
+                    <div class="return-details">
+                        <div class="detail-item">
+                            <span class="detail-label">Order ID</span>
+                            <span class="detail-value">#{{ return.transaction_id }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Buyer</span>
+                            <span class="detail-value">{{ return.buyer_email }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Refund Amount</span>
+                            <span class="detail-value">R{{ "%.2f"|format(return.refund_amount) if return.refund_amount else "N/A" }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Completed</span>
+                            <span class="detail-value">{{ return.updated_at[:10] }}</span>
+                        </div>
+                    </div>
+
+                    {% if return.admin_notes %}
+                    <div class="return-reason">
+                        <strong>Notes:</strong> {{ return.admin_notes }}
+                    </div>
+                    {% endif %}
+
+                    <div class="action-buttons">
+                        <a href="/order/{{ return.transaction_id }}" class="btn btn-view">View Order</a>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">📋</div>
+                    <p>No completed returns</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Approve Modal -->
+<div id="approveModal" class="modal">
+    <div class="modal-content">
+        <h2 class="modal-header">Approve Return</h2>
+        <form id="approveForm">
+            <input type="hidden" id="approve_return_id">
+            <div class="form-group">
+                <label class="form-label">Refund Amount (R)</label>
+                <input type="number" step="0.01" class="form-input" id="refund_amount" required>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-reject" onclick="closeModal('approveModal')">Cancel</button>
+                <button type="submit" class="btn btn-approve">Confirm Approval</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div id="rejectModal" class="modal">
+    <div class="modal-content">
+        <h2 class="modal-header">Reject Return</h2>
+        <form id="rejectForm">
+            <input type="hidden" id="reject_return_id">
+            <div class="form-group">
+                <label class="form-label">Rejection Reason</label>
+                <textarea class="form-input" id="rejection_reason" rows="4" required placeholder="Explain why the return is being rejected..."></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-view" onclick="closeModal('rejectModal')">Cancel</button>
+                <button type="submit" class="btn btn-reject">Confirm Rejection</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Tab switching
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        const tabName = tab.dataset.tab;
+
+        // Update active tab
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        // Update active content
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.getElementById(tabName + '-tab').classList.add('active');
+    });
+});
+
+// Modal functions
+function openModal(modalId) {
+    document.getElementById(modalId).classList.add('active');
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.remove('active');
+}
+
+function approveReturn(returnId, totalAmount) {
+    document.getElementById('approve_return_id').value = returnId;
+    document.getElementById('refund_amount').value = totalAmount.toFixed(2);
+    openModal('approveModal');
+}
+
+function rejectReturn(returnId) {
+    document.getElementById('reject_return_id').value = returnId;
+    openModal('rejectModal');
+}
+
+// Handle approve form submission
+document.getElementById('approveForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const returnId = document.getElementById('approve_return_id').value;
+    const refundAmount = document.getElementById('refund_amount').value;
+
+    try {
+        const response = await fetch(`/seller/return/${returnId}/approve`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                refund_amount: parseFloat(refundAmount)
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert('Return approved successfully!');
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Failed to approve return: ' + error.message);
+    }
+});
+
+// Handle reject form submission
+document.getElementById('rejectForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const returnId = document.getElementById('reject_return_id').value;
+    const reason = document.getElementById('rejection_reason').value;
+
+    try {
+        const response = await fetch(`/seller/return/${returnId}/reject`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                reason: reason
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert('Return rejected successfully');
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Failed to reject return: ' + error.message);
+    }
+});
+
+// Close modals on background click
+document.querySelectorAll('.modal').forEach(modal => {
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.classList.remove('active');
+        }
+    });
+});
+</script>
+{% endblock %}

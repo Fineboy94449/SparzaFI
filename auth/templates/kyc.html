@@ -1,0 +1,782 @@
+{% extends "base.html" %}
+
+{% block title %}Complete Your Profile - Bizzy Street{% endblock %}
+
+{% block extra_css %}
+<style>
+    .kyc-container {
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+    
+    .kyc-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .kyc-header h1 {
+        color: var(--text-primary);
+        font-size: 2.25rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+    
+    .kyc-header p {
+        color: var(--text-secondary);
+        font-size: 1.1rem;
+        margin: 0;
+    }
+    
+    .kyc-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        padding: 2.5rem;
+        box-shadow: var(--shadow);
+        transition: var(--transition);
+    }
+    
+    .kyc-card:hover {
+        border-color: rgba(255, 255, 255, 0.12);
+    }
+    
+    .progress-indicator {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 2rem;
+        position: relative;
+    }
+    
+    .progress-indicator::before {
+        content: '';
+        position: absolute;
+        top: 20px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: rgba(255, 255, 255, 0.1);
+        z-index: 0;
+    }
+    
+    .progress-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        position: relative;
+        z-index: 1;
+        flex: 1;
+    }
+    
+    .progress-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: var(--text-secondary);
+        transition: var(--transition);
+    }
+    
+    .progress-step.active .progress-circle {
+        background: var(--accent-color);
+        border-color: var(--accent-color);
+        color: white;
+        box-shadow: 0 0 20px rgba(255, 122, 24, 0.5);
+    }
+    
+    .progress-step.completed .progress-circle {
+        background: var(--success-color);
+        border-color: var(--success-color);
+        color: white;
+    }
+    
+    .progress-label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        text-align: center;
+    }
+    
+    .progress-step.active .progress-label {
+        color: var(--accent-color);
+        font-weight: 600;
+    }
+    
+    .kyc-info {
+        background: rgba(102, 126, 234, 0.1);
+        border-left: 4px solid var(--primary-color);
+        padding: 1.25rem;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+        display: flex;
+        gap: 1rem;
+        align-items: start;
+    }
+
+    .kyc-info-icon {
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+
+    .kyc-info-content strong {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: var(--primary-color-light);
+        font-size: 1rem;
+    }
+
+    .kyc-info-content p {
+        margin: 0;
+        color: var(--primary-color-lighter);
+        line-height: 1.6;
+    }
+    
+    .form-section {
+        margin-bottom: 2rem;
+    }
+    
+    .form-section-title {
+        font-size: 1.25rem;
+        color: var(--text-primary);
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        font-size: 0.9rem;
+    }
+    
+    .form-label .required {
+        color: var(--error-color);
+        margin-left: 0.25rem;
+    }
+    
+    .form-input,
+    .form-select,
+    .form-textarea {
+        width: 100%;
+        padding: 0.875rem 1rem;
+        background: var(--dark-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 1rem;
+        transition: var(--transition);
+    }
+    
+    .form-input:focus,
+    .form-select:focus,
+    .form-textarea:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 3px rgba(255, 122, 24, 0.1);
+        background: rgba(255, 255, 255, 0.02);
+    }
+    
+    .form-input::placeholder,
+    .form-textarea::placeholder {
+        color: var(--text-secondary);
+        opacity: 0.7;
+    }
+    
+    .form-select {
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 1rem center;
+        padding-right: 2.5rem;
+    }
+    
+    .form-select option {
+        background: var(--darker-bg);
+        color: var(--text-primary);
+        padding: 0.5rem;
+    }
+    
+    .form-textarea {
+        resize: vertical;
+        min-height: 120px;
+        line-height: 1.6;
+    }
+    
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.25rem;
+    }
+    
+    .form-hint {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-top: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .form-error {
+        font-size: 0.85rem;
+        color: var(--error-color);
+        margin-top: 0.5rem;
+        display: none;
+    }
+    
+    .form-input.error,
+    .form-select.error,
+    .form-textarea.error {
+        border-color: var(--error-color);
+    }
+    
+    .form-input.error + .form-error,
+    .form-select.error + .form-error,
+    .form-textarea.error + .form-error {
+        display: block;
+    }
+    
+    .security-notice {
+        background: rgba(72, 187, 120, 0.1);
+        border-left: 4px solid var(--success-color);
+        padding: 1rem 1.25rem;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+    
+    .security-notice-icon {
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+    
+    .security-notice p {
+        margin: 0;
+        color: #86efac;
+        font-size: 0.9rem;
+    }
+    
+    .required-note {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        margin-top: 1.5rem;
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: 6px;
+        text-align: center;
+    }
+    
+    .required-note .required {
+        color: var(--error-color);
+    }
+    
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+    
+    .submit-btn {
+        flex: 1;
+        padding: 1rem 2rem;
+        background: linear-gradient(135deg, var(--accent-color), #ff9a47);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        box-shadow: 0 4px 12px rgba(255, 122, 24, 0.3);
+    }
+    
+    .submit-btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(255, 122, 24, 0.5);
+    }
+    
+    .submit-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    .cancel-btn {
+        padding: 1rem 2rem;
+        background: transparent;
+        color: var(--text-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    
+    .cancel-btn:hover {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: var(--text-secondary);
+    }
+    
+    /* Character counter */
+    .char-counter {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        text-align: right;
+        margin-top: 0.25rem;
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .kyc-card {
+            padding: 1.5rem;
+        }
+        
+        .form-row {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        
+        .kyc-header h1 {
+            font-size: 1.75rem;
+            flex-direction: column;
+        }
+        
+        .progress-label {
+            font-size: 0.65rem;
+        }
+        
+        .progress-circle {
+            width: 35px;
+            height: 35px;
+            font-size: 0.9rem;
+        }
+        
+        .form-actions {
+            flex-direction: column-reverse;
+        }
+        
+        .cancel-btn {
+            width: 100%;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .kyc-container {
+            margin: 1rem auto;
+        }
+        
+        .kyc-card {
+            padding: 1.25rem;
+        }
+        
+        .progress-indicator {
+            gap: 0.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="kyc-container">
+    <div class="kyc-header">
+        <h1>
+            <span>✓</span>
+            Complete Your Profile
+        </h1>
+        <p>Help us verify your identity and keep our community safe</p>
+    </div>
+    
+    <div class="kyc-card">
+        <!-- Progress Indicator -->
+        <div class="progress-indicator">
+            <div class="progress-step active">
+                <div class="progress-circle">1</div>
+                <span class="progress-label">Personal Info</span>
+            </div>
+            <div class="progress-step">
+                <div class="progress-circle">2</div>
+                <span class="progress-label">Verification</span>
+            </div>
+            <div class="progress-step">
+                <div class="progress-circle">3</div>
+                <span class="progress-label">Complete</span>
+            </div>
+        </div>
+        
+        <!-- Info Alert -->
+        <div class="kyc-info">
+            <span class="kyc-info-icon">ℹ️</span>
+            <div class="kyc-info-content">
+                <strong>Why we need this information</strong>
+                <p>We require identity verification to maintain a trusted marketplace, prevent fraud, and comply with South African regulations. Your information is encrypted and stored securely.</p>
+            </div>
+        </div>
+        
+        <form method="POST" id="kycForm" novalidate>
+            <!-- Personal Information Section -->
+            <div class="form-section">
+                <h3 class="form-section-title">
+                    <span>👤</span> Personal Information
+                </h3>
+                
+                <div class="form-group">
+                    <label for="fullname" class="form-label">
+                        Full Legal Name<span class="required">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="fullname" 
+                        name="fullname" 
+                        class="form-input"
+                        placeholder="As it appears on your ID"
+                        required
+                        minlength="3"
+                        maxlength="100"
+                        pattern="[A-Za-z\s]+"
+                    >
+                    <span class="form-error">Please enter your full legal name</span>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="id_number" class="form-label">
+                            ID/Passport Number<span class="required">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="id_number" 
+                            name="id_number" 
+                            class="form-input"
+                            placeholder="e.g., 8001015900089"
+                            required
+                            minlength="6"
+                            maxlength="20"
+                        >
+                        <span class="form-hint">💡 13 digits for SA ID, or passport number</span>
+                        <span class="form-error">Please enter a valid ID or passport number</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="phone" class="form-label">
+                            Phone Number<span class="required">*</span>
+                        </label>
+                        <input 
+                            type="tel" 
+                            id="phone" 
+                            name="phone" 
+                            class="form-input"
+                            placeholder="+27 71 234 5678"
+                            required
+                            pattern="[\+]?[0-9\s\-\(\)]+"
+                        >
+                        <span class="form-hint">📱 Include country code</span>
+                        <span class="form-error">Please enter a valid phone number</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Address Section -->
+            <div class="form-section">
+                <h3 class="form-section-title">
+                    <span>📍</span> Address Information
+                </h3>
+                
+                <div class="form-group">
+                    <label for="address" class="form-label">
+                        Street Address<span class="required">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="address" 
+                        name="address" 
+                        class="form-input"
+                        placeholder="123 Main Street, Suburb"
+                        required
+                        minlength="5"
+                    >
+                    <span class="form-error">Please enter your street address</span>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="city" class="form-label">
+                            City/Town<span class="required">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="city" 
+                            name="city" 
+                            class="form-input"
+                            placeholder="e.g., Soweto, Cape Town"
+                            required
+                        >
+                        <span class="form-error">Please enter your city</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="province" class="form-label">
+                            Province<span class="required">*</span>
+                        </label>
+                        <select id="province" name="province" class="form-select" required>
+                            <option value="">Select your province</option>
+                            <option value="Eastern Cape">Eastern Cape</option>
+                            <option value="Free State">Free State</option>
+                            <option value="Gauteng">Gauteng</option>
+                            <option value="KwaZulu-Natal">KwaZulu-Natal</option>
+                            <option value="Limpopo">Limpopo</option>
+                            <option value="Mpumalanga">Mpumalanga</option>
+                            <option value="Northern Cape">Northern Cape</option>
+                            <option value="North West">North West</option>
+                            <option value="Western Cape">Western Cape</option>
+                        </select>
+                        <span class="form-error">Please select your province</span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="postal_code" class="form-label">
+                        Postal Code<span class="required">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="postal_code" 
+                        name="postal_code" 
+                        class="form-input"
+                        placeholder="e.g., 2000"
+                        required
+                        pattern="[0-9]{4}"
+                        maxlength="4"
+                    >
+                    <span class="form-hint">📮 4-digit postal code</span>
+                    <span class="form-error">Please enter a valid 4-digit postal code</span>
+                </div>
+            </div>
+            
+            <!-- Optional Information -->
+            <div class="form-section">
+                <h3 class="form-section-title">
+                    <span>📝</span> Additional Information (Optional)
+                </h3>
+                
+                <div class="form-group">
+                    <label for="bio" class="form-label">
+                        About You
+                    </label>
+                    <textarea 
+                        id="bio" 
+                        name="bio" 
+                        class="form-textarea"
+                        placeholder="Tell us about yourself, your business, or what you plan to sell on Bizzy Street..."
+                        maxlength="500"
+                    ></textarea>
+                    <div class="char-counter">
+                        <span id="bioCharCount">0</span> / 500 characters
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Security Notice -->
+            <div class="security-notice">
+                <span class="security-notice-icon">🔒</span>
+                <p><strong>Your data is secure:</strong> All information is encrypted and stored securely in compliance with POPIA (Protection of Personal Information Act).</p>
+            </div>
+            
+            <div class="required-note">
+                <span class="required">*</span> Required fields must be completed to verify your account
+            </div>
+            
+            <!-- Form Actions -->
+            <div class="form-actions">
+                <button type="button" class="cancel-btn" onclick="history.back()">
+                    Cancel
+                </button>
+                <button type="submit" class="submit-btn" id="submitBtn">
+                    <span>Complete Verification</span>
+                    <span>✓</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Character counter for bio
+    const bioTextarea = document.getElementById('bio');
+    const charCount = document.getElementById('bioCharCount');
+    
+    if (bioTextarea && charCount) {
+        bioTextarea.addEventListener('input', function() {
+            charCount.textContent = this.value.length;
+            
+            if (this.value.length > 450) {
+                charCount.style.color = 'var(--warning-color)';
+            } else {
+                charCount.style.color = 'var(--text-secondary)';
+            }
+        });
+    }
+    
+    // Phone number formatting
+    const phoneInput = document.getElementById('phone');
+    if (phoneInput) {
+        phoneInput.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            
+            // Add +27 if user starts with 0
+            if (value.startsWith('0')) {
+                value = '27' + value.substring(1);
+            }
+            
+            // Format as +27 XX XXX XXXX
+            if (value.startsWith('27') && value.length > 2) {
+                value = '+27 ' + value.substring(2);
+            }
+            
+            e.target.value = value;
+        });
+    }
+    
+    // ID number validation (basic SA ID check)
+    const idInput = document.getElementById('id_number');
+    if (idInput) {
+        idInput.addEventListener('blur', function() {
+            const value = this.value.replace(/\s/g, '');
+            
+            // Check if it's a 13-digit SA ID
+            if (value.length === 13 && /^\d+$/.test(value)) {
+                // Basic Luhn check for SA ID
+                const isValid = validateSAID(value);
+                if (!isValid) {
+                    this.classList.add('error');
+                    const error = this.nextElementSibling;
+                    if (error && error.classList.contains('form-error')) {
+                        error.textContent = 'Invalid South African ID number';
+                        error.style.display = 'block';
+                    }
+                } else {
+                    this.classList.remove('error');
+                }
+            }
+        });
+    }
+    
+    // SA ID validation using Luhn algorithm
+    function validateSAID(id) {
+        if (id.length !== 13) return false;
+        
+        let sum = 0;
+        for (let i = 0; i < 12; i++) {
+            let digit = parseInt(id[i]);
+            if (i % 2 === 0) {
+                sum += digit;
+            } else {
+                digit *= 2;
+                sum += digit > 9 ? digit - 9 : digit;
+            }
+        }
+        
+        const checkDigit = (10 - (sum % 10)) % 10;
+        return checkDigit === parseInt(id[12]);
+    }
+    
+    // Form validation
+    const form = document.getElementById('kycForm');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Clear previous errors
+            document.querySelectorAll('.form-input, .form-select, .form-textarea').forEach(el => {
+                el.classList.remove('error');
+            });
+            
+            let isValid = true;
+            const requiredFields = form.querySelectorAll('[required]');
+            
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    field.classList.add('error');
+                    isValid = false;
+                } else if (field.validity && !field.validity.valid) {
+                    field.classList.add('error');
+                    isValid = false;
+                }
+            });
+            
+            if (isValid) {
+                // Show loading state
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner" style="width: 20px; height: 20px; border-width: 2px; margin: 0;"></span> Processing...';
+                
+                // Submit form
+                form.submit();
+            } else {
+                // Scroll to first error
+                const firstError = document.querySelector('.form-input.error, .form-select.error');
+                if (firstError) {
+                    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    firstError.focus();
+                }
+            }
+        });
+        
+        // Real-time validation
+        const inputs = form.querySelectorAll('.form-input, .form-select, .form-textarea');
+        inputs.forEach(input => {
+            input.addEventListener('blur', function() {
+                if (this.hasAttribute('required') && !this.value.trim()) {
+                    this.classList.add('error');
+                } else if (this.validity && !this.validity.valid) {
+                    this.classList.add('error');
+                } else {
+                    this.classList.remove('error');
+                }
+            });
+            
+            input.addEventListener('input', function() {
+                if (this.classList.contains('error') && this.value.trim()) {
+                    this.classList.remove('error');
+                }
+            });
+        });
+    }
+    
+    // Postal code formatting
+    const postalInput = document.getElementById('postal_code');
+    if (postalInput) {
+        postalInput.addEventListener('input', function(e) {
+            this.value = this.value.replace(/\D/g, '').substring(0, 4);
+        });
+    }
+</script>
+{% endblock %}

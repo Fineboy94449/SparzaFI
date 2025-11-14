@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}Tax & Compliance - Admin - SparzaFI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .metric-card {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.04);
+        border-radius: 14px;
+        padding: 1.5rem;
+        text-align: center;
+    }
+
+    .metric-label {
+        color: #94a3b8;
+        font-size: 0.9rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .metric-value {
+        font-size: 2rem;
+        font-weight: bold;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .data-table {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.04);
+        border-radius: 14px;
+        overflow: hidden;
+        margin-top: 2rem;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    thead {
+        background: linear-gradient(90deg, #667eea, #764ba2);
+    }
+
+    th {
+        padding: 1.25rem;
+        text-align: left;
+        font-weight: bold;
+        color: white;
+    }
+
+    td {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    tbody tr:hover {
+        background: rgba(255,122,24,0.05);
+    }
+
+    tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .amount {
+        color: #ff7a18;
+        font-weight: bold;
+    }
+
+    .export-btn {
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: bold;
+        cursor: pointer;
+        margin-bottom: 1.5rem;
+    }
+
+    .export-btn:hover {
+        opacity: 0.9;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>📊 Tax & Compliance Dashboard</h1>
+
+<div class="metrics-grid">
+    <div class="metric-card">
+        <div class="metric-label">VAT Rate</div>
+        <div class="metric-value">{{ (vat_rate * 100)|round(1) }}%</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">Reporting Period</div>
+        <div class="metric-value" style="font-size: 1.5rem;">{{ current_month }}/{{ current_year }}</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">Total VAT Collected</div>
+        <div class="metric-value" style="font-size: 1.5rem;">
+            {% if vat_reports %}
+                R{{ "%.2f"|format(vat_reports|sum(attribute='vat_due')) }}
+            {% else %}
+                R0.00
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<form action="{{ url_for('admin.export_vat_report') }}" method="post">
+    <button type="submit" class="export-btn">📥 Export VAT Report (CSV)</button>
+</form>
+
+<h2 style="color: #ff7a18; margin-top: 2rem;">Seller VAT Summary</h2>
+
+{% if vat_reports %}
+<div class="data-table">
+    <table>
+        <thead>
+            <tr>
+                <th>Seller Name</th>
+                <th>Gross Sales</th>
+                <th>VAT Due</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for report in vat_reports %}
+            <tr>
+                <td><strong>{{ report.seller_name }}</strong></td>
+                <td><span class="amount">R{{ "%.2f"|format(report.total_gross_sales) }}</span></td>
+                <td><span class="amount">R{{ "%.2f"|format(report.vat_due) }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p style="color: #94a3b8; margin-top: 2rem;">No completed transactions found for this period.</p>
+{% endif %}
+
+<div style="margin-top: 3rem; padding: 1.5rem; background: rgba(255,122,24,0.1); border-radius: 14px;">
+    <h3 style="color: #ff7a18;">ℹ️ Compliance Notes</h3>
+    <ul style="color: #94a3b8; line-height: 1.8;">
+        <li>VAT is calculated on all completed transactions</li>
+        <li>Reports are generated based on settlement date (funds_settled_at)</li>
+        <li>Sellers are responsible for their own VAT registration and submissions</li>
+        <li>This dashboard is for informational purposes only</li>
+    </ul>
+</div>
+{% endblock %}

@@ -1,0 +1,945 @@
+{% extends "base.html" %}
+
+{% block title %}Seller Dashboard - {{ seller.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --danger-color: #ef4444;
+    }
+
+    .dashboard-container {
+        padding: 1.5rem;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    /* Header */
+    .dashboard-header {
+        background: var(--primary-gradient);
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+        color: white;
+    }
+
+    .dashboard-header h1 {
+        margin: 0 0 0.5rem 0;
+        font-size: 2rem;
+    }
+
+    .dashboard-header p {
+        margin: 0;
+        opacity: 0.9;
+    }
+
+    /* Stats Cards */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: var(--card-bg);
+        border: 2px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1.5rem;
+        transition: all 0.3s;
+    }
+
+    .stat-card:hover {
+        border-color: var(--accent-color);
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(6, 182, 212, 0.2);
+    }
+
+    .stat-label {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .stat-icon {
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Tabs */
+    .tabs-container {
+        background: var(--card-bg);
+        border: 2px solid var(--border-color);
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    .tabs-header {
+        display: flex;
+        border-bottom: 2px solid var(--border-color);
+        overflow-x: auto;
+        scrollbar-width: thin;
+    }
+
+    .tab-button {
+        padding: 1rem 1.5rem;
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        border-bottom: 3px solid transparent;
+        white-space: nowrap;
+    }
+
+    .tab-button:hover {
+        color: var(--accent-color);
+        background: rgba(6, 182, 212, 0.05);
+    }
+
+    .tab-button.active {
+        color: var(--accent-color);
+        border-bottom-color: var(--accent-color);
+        background: rgba(6, 182, 212, 0.1);
+    }
+
+    .tab-content {
+        display: none;
+        padding: 2rem;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    /* Orders Table */
+    .orders-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+    }
+
+    .orders-table th {
+        background: var(--object-bg);
+        padding: 0.75rem;
+        text-align: left;
+        font-weight: 600;
+        color: var(--text-muted);
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    .orders-table td {
+        padding: 1rem 0.75rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .orders-table tr:hover {
+        background: var(--object-bg-hover);
+    }
+
+    .status-badge {
+        padding: 0.35rem 0.85rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .status-pending { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
+    .status-confirmed { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+    .status-ready { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+
+    /* Action Buttons */
+    .action-btn {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        border: none;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        margin-right: 0.5rem;
+    }
+
+    .btn-confirm {
+        background: rgba(16, 185, 129, 0.2);
+        color: var(--success-color);
+        border: 1px solid var(--success-color);
+    }
+
+    .btn-confirm:hover {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-ready {
+        background: rgba(59, 130, 246, 0.2);
+        color: #3b82f6;
+        border: 1px solid #3b82f6;
+    }
+
+    .btn-ready:hover {
+        background: #3b82f6;
+        color: white;
+    }
+
+    .btn-cancel {
+        background: rgba(239, 68, 68, 0.2);
+        color: var(--danger-color);
+        border: 1px solid var(--danger-color);
+    }
+
+    .btn-cancel:hover {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    /* Products Grid */
+    .products-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+    }
+
+    .product-card {
+        background: var(--object-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1.5rem;
+        transition: all 0.3s;
+    }
+
+    .product-card:hover {
+        border-color: var(--accent-color);
+        transform: translateY(-4px);
+    }
+
+    .product-name {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .product-price {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--accent-color);
+        margin-bottom: 0.5rem;
+    }
+
+    .product-stock {
+        font-size: 0.9rem;
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+    }
+
+    /* Video Slots */
+    .video-slots {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+    }
+
+    .video-slot {
+        background: var(--object-bg);
+        border: 2px dashed var(--border-color);
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        transition: all 0.3s;
+    }
+
+    .video-slot.filled {
+        border-style: solid;
+        border-color: var(--accent-color);
+    }
+
+    .video-slot-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+
+    .video-slot-title {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .video-slot-duration {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+    }
+
+    /* Forms */
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+        width: 100%;
+        padding: 0.75rem;
+        background: var(--object-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-family: inherit;
+        transition: all 0.3s;
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
+    }
+
+    .btn-primary {
+        padding: 0.75rem 1.5rem;
+        background: var(--primary-gradient);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-muted);
+    }
+
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+
+    /* Quick Actions */
+    .quick-actions {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .quick-action-btn {
+        flex: 1;
+        min-width: 200px;
+        padding: 1rem 1.5rem;
+        background: var(--card-bg);
+        border: 2px solid var(--border-color);
+        border-radius: 12px;
+        color: var(--text-primary);
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .quick-action-btn:hover {
+        border-color: var(--accent-color);
+        background: rgba(6, 182, 212, 0.1);
+        transform: translateY(-2px);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .tabs-header {
+            flex-wrap: nowrap;
+        }
+
+        .products-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .video-slots {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <h1>{{ seller.name }}
+            {% if seller.verification_status == 'verified' %}
+            <span style="font-size: 1.5rem;">✓</span>
+            {% endif %}
+        </h1>
+        <p>📍 {{ seller.location }}</p>
+        <p>{{ seller.bio }}</p>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">💰</div>
+            <div class="stat-label">Total Sales</div>
+            <div class="stat-value">R{{ "%.2f"|format(stats.total_sales) }}</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <div class="stat-label">Pending Orders</div>
+            <div class="stat-value">{{ stats.pending_orders }}</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">🛍️</div>
+            <div class="stat-label">Active Products</div>
+            <div class="stat-value">{{ stats.active_products }}</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">💵</div>
+            <div class="stat-label">Wallet Balance</div>
+            <div class="stat-value">R{{ "%.2f"|format(stats.wallet_balance) }}</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-label">Followers</div>
+            <div class="stat-value">{{ stats.followers }}</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">❤️</div>
+            <div class="stat-label">Likes</div>
+            <div class="stat-value">{{ stats.likes }}</div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <button class="quick-action-btn" onclick="switchTab('products')">
+            ➕ Add Product
+        </button>
+        <button class="quick-action-btn" onclick="switchTab('videos')">
+            🎥 Manage Videos
+        </button>
+        <button class="quick-action-btn" onclick="switchTab('earnings')">
+            💸 Withdraw Earnings
+        </button>
+    </div>
+
+    <!-- Tabbed Content -->
+    <div class="tabs-container">
+        <div class="tabs-header">
+            <button class="tab-button active" onclick="switchTab('orders')">📦 Orders</button>
+            <button class="tab-button" onclick="switchTab('products')">🛍️ Products</button>
+            <button class="tab-button" onclick="switchTab('videos')">🎥 Videos</button>
+            <button class="tab-button" onclick="switchTab('earnings')">💰 Earnings</button>
+            <button class="tab-button" onclick="switchTab('profile')">⚙️ Profile</button>
+            <button class="tab-button" onclick="switchTab('reviews')">⭐ Reviews</button>
+            <button class="tab-button" onclick="switchTab('analytics')">📊 Analytics</button>
+        </div>
+
+        <!-- Orders Tab -->
+        <div id="tab-orders" class="tab-content active">
+            <h2>Orders Management</h2>
+
+            {% if pending_orders %}
+            <table class="orders-table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Buyer</th>
+                        <th>Status</th>
+                        <th>Total</th>
+                        <th>Payment</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in pending_orders %}
+                    <tr>
+                        <td><strong>#{{ order.id }}</strong></td>
+                        <td>{{ order.buyer_email }}</td>
+                        <td>
+                            <span class="status-badge status-{{ order.status|lower }}">
+                                {{ order.status }}
+                            </span>
+                        </td>
+                        <td><strong>R{{ "%.2f"|format(order.total_amount) }}</strong></td>
+                        <td>{{ order.payment_method }}</td>
+                        <td>
+                            {% if order.status == 'PENDING' %}
+                            <button class="action-btn btn-confirm" onclick="confirmOrder({{ order.id }})">
+                                ✓ Confirm
+                            </button>
+                            <button class="action-btn btn-cancel" onclick="cancelOrder({{ order.id }})">
+                                ✗ Cancel
+                            </button>
+                            {% elif order.status == 'CONFIRMED' %}
+                            <button class="action-btn btn-ready" onclick="markReady({{ order.id }})">
+                                🚚 Ready for Pickup
+                            </button>
+                            {% elif order.status == 'READY_FOR_PICKUP' %}
+                            <span style="color: var(--success-color);">
+                                Code: {{ order.pickup_code }}
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">📦</div>
+                <h3>No pending orders</h3>
+                <p>When customers place orders, they'll appear here.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Products Tab -->
+        <div id="tab-products" class="tab-content">
+            <h2>Products Management</h2>
+
+            <div class="form-group">
+                <h3>Add New Product</h3>
+                <form method="POST" action="{{ url_for('seller.manage_products') }}">
+                    <div class="form-group">
+                        <label>Product Name *</label>
+                        <input type="text" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea name="description" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Price (R) *</label>
+                        <input type="number" name="price" step="0.01" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Stock Quantity</label>
+                        <input type="number" name="stock_count" value="10" min="0">
+                    </div>
+                    <button type="submit" class="btn-primary">Add Product</button>
+                </form>
+            </div>
+
+            <h3 style="margin-top: 2rem;">Your Products</h3>
+            {% if products %}
+            <div class="products-grid">
+                {% for product in products %}
+                <div class="product-card">
+                    <div class="product-name">{{ product.name }}</div>
+                    <div class="product-price">R{{ "%.2f"|format(product.price) }}</div>
+                    <div class="product-stock">
+                        Stock: {{ product.stock_count }}
+                        {% if product.is_active %}
+                        <span style="color: var(--success-color);">● Active</span>
+                        {% else %}
+                        <span style="color: var(--text-muted);">○ Inactive</span>
+                        {% endif %}
+                    </div>
+                    <p style="font-size: 0.9rem; color: var(--text-muted);">
+                        {{ product.description[:80] }}{% if product.description|length > 80 %}...{% endif %}
+                    </p>
+                    <div style="margin-top: 1rem;">
+                        <button class="action-btn btn-confirm" onclick="window.location.href='{{ url_for('seller.edit_product', product_id=product.id) }}'">
+                            ✏️ Edit
+                        </button>
+                        <button class="action-btn btn-cancel" onclick="deleteProduct({{ product.id }})">
+                            🗑️ Delete
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">🛍️</div>
+                <h3>No products yet</h3>
+                <p>Add your first product to start selling!</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Videos Tab -->
+        <div id="tab-videos" class="tab-content">
+            <h2>Business Videos</h2>
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+                Upload 3 videos to introduce your business to buyers. Videos help build trust and showcase your story.
+            </p>
+
+            <div class="video-slots">
+                {% set video_types = {'intro': '🎬 Intro Video', 'detailed': '📖 Detailed Video', 'conclusion': '👋 Conclusion Video'} %}
+                {% set video_durations = {'intro': '~30 seconds', 'detailed': '≤2 minutes', 'conclusion': '~30 seconds'} %}
+
+                {% for vtype, label in video_types.items() %}
+                {% set existing = videos|selectattr('video_type', 'equalto', vtype)|list|first %}
+                <div class="video-slot {% if existing %}filled{% endif %}">
+                    <div class="video-slot-icon">
+                        {% if vtype == 'intro' %}🎬
+                        {% elif vtype == 'detailed' %}📖
+                        {% else %}👋{% endif %}
+                    </div>
+                    <div class="video-slot-title">{{ label }}</div>
+                    <div class="video-slot-duration">{{ video_durations[vtype] }}</div>
+
+                    {% if existing %}
+                    <p><strong>{{ existing.title }}</strong></p>
+                    <p style="font-size: 0.9rem; color: var(--text-muted);">{{ existing.caption }}</p>
+                    <button class="action-btn btn-cancel" onclick="deleteVideo({{ existing.id }})">
+                        Delete
+                    </button>
+                    {% else %}
+                    <p style="color: var(--text-muted);">No video uploaded</p>
+                    {% endif %}
+
+                    <button class="btn-primary" style="margin-top: 1rem;" onclick="alert('Video upload feature coming soon! Please contact support.')">
+                        {% if existing %}Replace{% else %}Upload{% endif %}
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Earnings Tab -->
+        <div id="tab-earnings" class="tab-content">
+            <h2>Earnings & Withdrawals</h2>
+
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
+                <div class="stat-card">
+                    <div class="stat-label">Available Balance</div>
+                    <div class="stat-value">R{{ "%.2f"|format(stats.wallet_balance) }}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Earned</div>
+                    <div class="stat-value">R{{ "%.2f"|format(stats.total_sales) }}</div>
+                </div>
+            </div>
+
+            <h3>Request Withdrawal</h3>
+            <form id="withdrawalForm">
+                <div class="form-group">
+                    <label>Amount (R)</label>
+                    <input type="number" id="withdrawAmount" name="amount" step="0.01" min="0" max="{{ stats.wallet_balance }}" required>
+                    <small style="color: var(--text-muted);">Available: R{{ "%.2f"|format(stats.wallet_balance) }}</small>
+                </div>
+                <div class="form-group">
+                    <label>Bank Name</label>
+                    <input type="text" name="bank_name" required>
+                </div>
+                <div class="form-group">
+                    <label>Account Number</label>
+                    <input type="text" name="account_number" required>
+                </div>
+                <div class="form-group">
+                    <label>Account Holder Name</label>
+                    <input type="text" name="account_holder" required>
+                </div>
+                <button type="submit" class="btn-primary">Submit Withdrawal Request</button>
+            </form>
+
+            <h3 style="margin-top: 2rem;">Recent Transactions</h3>
+            {% if recent_transactions %}
+            <table class="orders-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Order ID</th>
+                        <th>Buyer</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tx in recent_transactions[:10] %}
+                    <tr>
+                        <td>{{ tx.timestamp[:10] }}</td>
+                        <td>#{{ tx.id }}</td>
+                        <td>{{ tx.buyer_email }}</td>
+                        <td>R{{ "%.2f"|format(tx.seller_amount or 0) }}</td>
+                        <td><span class="status-badge status-{{ tx.status|lower }}">{{ tx.status }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <p>No transactions yet</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Profile Tab -->
+        <div id="tab-profile" class="tab-content">
+            <h2>Business Profile Settings</h2>
+
+            <form method="POST" action="{{ url_for('seller.update_profile') }}">
+                <div class="form-group">
+                    <label>Shop Name *</label>
+                    <input type="text" name="name" value="{{ seller.name }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Bio</label>
+                    <textarea name="bio" rows="4">{{ seller.bio }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Location *</label>
+                    <input type="text" name="location" value="{{ seller.location }}" required>
+                </div>
+                <button type="submit" class="btn-primary">Update Profile</button>
+            </form>
+        </div>
+
+        <!-- Reviews Tab -->
+        <div id="tab-reviews" class="tab-content">
+            <h2>Customer Reviews</h2>
+
+            {% if recent_reviews %}
+            {% for review in recent_reviews %}
+            <div style="background: var(--object-bg); padding: 1.5rem; border-radius: 12px; margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <strong>{{ review.buyer_email }}</strong>
+                    <span style="color: #fbbf24;">
+                        {% for i in range(review.rating) %}⭐{% endfor %}
+                    </span>
+                </div>
+                <p>{{ review.review_text }}</p>
+                <small style="color: var(--text-muted);">{{ review.created_at }}</small>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">⭐</div>
+                <h3>No reviews yet</h3>
+                <p>Reviews from customers will appear here.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Analytics Tab -->
+        <div id="tab-analytics" class="tab-content">
+            <h2>Sales Analytics</h2>
+
+            <h3>Top Products</h3>
+            {% if popular_products %}
+            <table class="orders-table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Units Sold</th>
+                        <th>Revenue</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in popular_products %}
+                    <tr>
+                        <td><strong>{{ product.name }}</strong></td>
+                        <td>{{ product.sales_count }}</td>
+                        <td>R{{ "%.2f"|format(product.revenue) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <p>No sales data yet</p>
+            </div>
+            {% endif %}
+
+            <h3 style="margin-top: 2rem;">Last 7 Days Sales</h3>
+            {% if last_7_days_sales %}
+            <div style="background: var(--object-bg); padding: 1.5rem; border-radius: 12px;">
+                {% for day in last_7_days_sales %}
+                <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
+                    <span>{{ day.date }}</span>
+                    <strong>R{{ "%.2f"|format(day.daily_total) }}</strong>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <p>No sales in the last 7 days</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Tab Switching
+function switchTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+
+    // Deactivate all buttons
+    document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    // Show selected tab
+    document.getElementById('tab-' + tabName).classList.add('active');
+
+    // Activate button
+    event.target.classList.add('active');
+}
+
+// Order Management
+async function confirmOrder(orderId) {
+    if (!confirm('Confirm this order?')) return;
+
+    try {
+        const response = await fetch(`/seller/order/${orderId}/confirm`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+        alert(data.message);
+        if (data.success) location.reload();
+    } catch (error) {
+        alert('Error confirming order');
+    }
+}
+
+async function markReady(orderId) {
+    if (!confirm('Mark this order as ready for pickup?')) return;
+
+    try {
+        const response = await fetch(`/seller/order/${orderId}/ready`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+        alert(data.message);
+        if (data.success) location.reload();
+    } catch (error) {
+        alert('Error marking order ready');
+    }
+}
+
+async function cancelOrder(orderId) {
+    const reason = prompt('Reason for cancellation:');
+    if (!reason) return;
+
+    try {
+        const formData = new FormData();
+        formData.append('reason', reason);
+
+        const response = await fetch(`/seller/order/${orderId}/cancel`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+        alert(data.message);
+        if (data.success) location.reload();
+    } catch (error) {
+        alert('Error cancelling order');
+    }
+}
+
+// Product Management
+async function deleteProduct(productId) {
+    if (!confirm('Delete this product?')) return;
+
+    try {
+        const response = await fetch(`/seller/products/delete/${productId}`, {
+            method: 'POST'
+        });
+
+        if (response.ok) {
+            alert('Product deleted successfully');
+            location.reload();
+        } else {
+            alert('Error deleting product');
+        }
+    } catch (error) {
+        alert('Error deleting product');
+    }
+}
+
+// Video Management
+async function deleteVideo(videoId) {
+    if (!confirm('Delete this video?')) return;
+
+    try {
+        const response = await fetch(`/seller/videos/${videoId}/delete`, {
+            method: 'POST'
+        });
+
+        const data = await response.json();
+        alert(data.message);
+        if (data.success) location.reload();
+    } catch (error) {
+        alert('Error deleting video');
+    }
+}
+
+// Withdrawal Request
+document.getElementById('withdrawalForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const formData = new FormData(e.target);
+
+    try {
+        const response = await fetch('/seller/request-withdrawal', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+        alert(data.message);
+
+        if (data.success) {
+            e.target.reset();
+            location.reload();
+        }
+    } catch (error) {
+        alert('Error submitting withdrawal request');
+    }
+});
+</script>
+{% endblock %}

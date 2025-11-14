@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Content Moderation - SparzaFI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .moderation-intro {
+        color: var(--text-secondary);
+        margin-bottom: 2rem;
+    }
+
+    .moderation-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .flagged-item h2 {
+        font-size: 1.5rem;
+        color: var(--error-color);
+        margin-bottom: 1rem;
+    }
+
+    .flagged-item p {
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .content-type {
+        text-transform: capitalize;
+    }
+
+    .flag-reason {
+        margin-top: 0.5rem;
+        font-weight: bold;
+        color: var(--text-primary);
+    }
+
+    .content-preview {
+        background: var(--bg-secondary);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+        border: 1px solid var(--border-color);
+    }
+
+    .content-preview h3 {
+        font-size: 1.1rem;
+        color: var(--text-primary);
+        margin-bottom: 0.75rem;
+    }
+
+    .moderation-actions-title {
+        margin-top: 1.5rem;
+        font-size: 1.2rem;
+        color: var(--text-primary);
+    }
+
+    .actions-form {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+    }
+
+    .btn-approve {
+        background: var(--success-color);
+        border-color: var(--success-color);
+    }
+
+    .btn-reject {
+        border-color: var(--accent-color);
+        color: var(--accent-color);
+    }
+
+    .btn-suspend {
+        border-color: var(--error-color);
+        color: var(--error-color);
+    }
+
+    .empty-queue {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 3rem;
+    }
+
+    .empty-queue p {
+        font-size: 1.2rem;
+    }
+
+    /* Modal Styles */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-content {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        padding: 2rem;
+        max-width: 500px;
+        width: 90%;
+    }
+
+    .modal-content h2 {
+        color: var(--error-color);
+        margin-bottom: 1.5rem;
+    }
+
+    .form-field {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-field label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+    }
+
+    .form-field textarea {
+        width: 100%;
+        padding: 0.75rem;
+        background: var(--input-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-primary);
+        min-height: 100px;
+        font-family: inherit;
+    }
+
+    .modal-buttons {
+        display: flex;
+        gap: 1rem;
+    }
+
+    .modal-buttons button {
+        flex: 1;
+    }
+
+    .btn-cancel {
+        background: var(--primary-color);
+    }
+
+    @media (max-width: 768px) {
+        .moderation-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .actions-form {
+            flex-direction: column;
+        }
+
+        .actions-form button {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Content Moderation Queue ⚠️</h1>
+    <p class="moderation-intro">Items flagged by users or automated systems require manual review.</p>
+
+    <div class="moderation-grid">
+        {% for item in moderation_items %}
+        <div class="card flagged-item">
+            <h2>Flagged Item #{{ item.id }}</h2>
+            <p><strong>Seller:</strong> {{ item.seller_name|default('N/A') }}</p>
+            <p><strong>Content Type:</strong> <span class="content-type">{{ item.content_type }}</span> (ID: {{ item.content_id }})</p>
+            <p class="flag-reason">Reason: {{ item.reason }}</p>
+
+            <div class="content-preview">
+                <h3>Content Preview:</h3>
+                {% if item.content_data.name %}
+                    <p><strong>Name:</strong> {{ item.content_data.name }}</p>
+                    <p><strong>Description:</strong> {{ item.content_data.description }}</p>
+                {% elif item.content_data.title %}
+                    <p><strong>Title:</strong> {{ item.content_data.title }}</p>
+                    <p><strong>Caption:</strong> {{ item.content_data.caption }}</p>
+                    <p>Video URL: <a href="{{ item.content_data.video_url }}" target="_blank">Link</a></p>
+                {% else %}
+                    <p>Error fetching content details.</p>
+                {% endif %}
+            </div>
+
+            <h3 class="moderation-actions-title">Moderation Actions:</h3>
+            <form method="POST" action="{{ url_for('admin.moderation_action', item_id=item.id) }}" class="actions-form">
+                <button type="submit" name="action" value="approve" class="btn btn-primary btn-small btn-approve">
+                    Approve (Clear)
+                </button>
+                <button type="submit" name="action" value="reject" class="btn btn-outline btn-small btn-reject">
+                    Reject (Hide Content)
+                </button>
+                <button type="submit" name="action" value="suspend" class="btn btn-outline btn-small btn-suspend">
+                    Suspend Seller
+                </button>
+            </form>
+        </div>
+        {% else %}
+        <div class="card empty-queue">
+            <p><span class="status-verified">Moderation queue is empty. All content is clean! ✨</span></p>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+<!-- Removal Modal -->
+<div id="removeModal" class="modal">
+    <div class="modal-content">
+        <h2>Remove Content</h2>
+        <form id="removeForm" method="POST">
+            <div class="form-field">
+                <label>Reason for Removal:</label>
+                <textarea name="removal_reason" required></textarea>
+            </div>
+            <div class="modal-buttons">
+                <button type="submit" class="btn btn-danger">Remove</button>
+                <button type="button" class="btn btn-primary btn-cancel" onclick="closeRemoveModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function showRemoveModal(moderationId) {
+        document.getElementById('removeModal').style.display = 'flex';
+        document.getElementById('removeForm').action = `/admin/moderation/${moderationId}/remove`;
+    }
+
+    function closeRemoveModal() {
+        document.getElementById('removeModal').style.display = 'none';
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics & Reporting - Bizzy Street{% endblock %}
+
+{% block extra_css %}
+<style>
+    .analytics-section {
+        margin-bottom: 3rem;
+    }
+    
+    .section-title {
+        font-size: 1.5rem;
+        color: #ff7a18;
+        margin-bottom: 1.5rem;
+    }
+    
+    .analytics-table {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.04);
+        border-radius: 14px;
+        overflow: hidden;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    thead {
+        background: linear-gradient(90deg, #667eea, #764ba2);
+    }
+    
+    th {
+        padding: 1.25rem;
+        text-align: left;
+        font-weight: bold;
+        color: white;
+    }
+    
+    td {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    
+    tbody tr:hover {
+        background: rgba(255,122,24,0.05);
+    }
+    
+    .amount {
+        color: #ff7a18;
+        font-weight: bold;
+    }
+    
+    .count-badge {
+        background: rgba(102, 126, 234, 0.2);
+        color: #667eea;
+        padding: 0.4rem 0.8rem;
+        border-radius: 5px;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>📊 Analytics & Reporting</h1>
+
+<div class="analytics-section">
+    <div class="section-title">Daily Transactions (Last 30 Days)</div>
+    <div class="analytics-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Transactions</th>
+                    <th>Total Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tx in daily_transactions %}
+                <tr>
+                    <td>{{ tx.date }}</td>
+                    <td><span class="count-badge">{{ tx.count }}</span></td>
+                    <td><span class="amount">R{{ "%.2f"|format(tx.amount or 0) }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="analytics-section">
+    <div class="section-title">Top Sellers</div>
+    <div class="analytics-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>Seller Name</th>
+                    <th>Handle</th>
+                    <th>Transactions</th>
+                    <th>Total Revenue</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for seller in top_sellers %}
+                <tr>
+                    <td>{{ seller.name }}</td>
+                    <td>@{{ seller.handle }}</td>
+                    <td><span class="count-badge">{{ seller.transaction_count }}</span></td>
+                    <td><span class="amount">R{{ "%.2f"|format(seller.total_revenue or 0) }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="analytics-section">
+    <div class="section-title">Payment Methods</div>
+    <div class="analytics-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>Payment Method</th>
+                    <th>Count</th>
+                    <th>Total Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for method in payment_methods %}
+                <tr>
+                    <td>{{ method.payment_method }}</td>
+                    <td><span class="count-badge">{{ method.count }}</span></td>
+                    <td><span class="amount">R{{ "%.2f"|format(method.total or 0) }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="analytics-section">
+    <div class="section-title">Delivery Methods</div>
+    <div class="analytics-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>Delivery Method</th>
+                    <th>Usage Count</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for method in delivery_methods %}
+                <tr>
+                    <td>{{ 'Public Transport' if method.delivery_method == 'public_transport' else 'Buyer Collection' }}</td>
+                    <td><span class="count-badge">{{ method.count }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

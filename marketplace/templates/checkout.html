@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Checkout - SparzaFI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .checkout-container {
+        max-width: 700px;
+        margin: 0 auto;
+    }
+
+    .checkout-intro {
+        color: var(--text-secondary);
+        margin-bottom: 2rem;
+    }
+
+    .order-total-section {
+        margin-bottom: 2rem;
+    }
+
+    .order-total-section h2 {
+        font-size: 1.3rem;
+        color: var(--text-primary);
+        margin-bottom: 1rem;
+    }
+
+    .total-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 0;
+        border-top: 1px dashed var(--border-color);
+    }
+
+    .total-label {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--text-primary);
+    }
+
+    .total-amount {
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--success-color);
+    }
+
+    .section-title {
+        font-size: 1.3rem;
+        color: var(--text-primary);
+        margin-bottom: 1rem;
+    }
+
+    .delivery-options {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .payment-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .option-label {
+        flex: 1;
+        text-align: center;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .option-label input[type="radio"] {
+        margin: 0;
+    }
+
+    .confirm-btn {
+        width: 100%;
+        padding: 1rem;
+        font-size: 1.1rem;
+    }
+
+    .checkout-notice {
+        text-align: center;
+        margin-top: 1rem;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+
+    @media (max-width: 768px) {
+        .delivery-options {
+            flex-direction: column;
+        }
+
+        .payment-options {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="checkout-container">
+    <h1>✅ Checkout</h1>
+    <p class="checkout-intro">Please review your order and select your payment and delivery options.</p>
+
+    <form method="POST" action="{{ url_for('marketplace.checkout') }}" class="card">
+
+        <div class="order-total-section">
+            <h2>Order Total</h2>
+            <div class="total-row">
+                <span class="total-label">Final Total:</span>
+                <span class="total-amount">{{ summary.total }}</span>
+            </div>
+        </div>
+
+        <h2 class="section-title">1. Delivery Method</h2>
+        <div class="delivery-options">
+            <label class="btn btn-outline option-label delivery-option-card" data-method="public_transport">
+                <input type="radio" name="delivery_method" value="public_transport" id="delivery_transport" required checked>
+                <div class="option-content">
+                    <div class="option-icon">🚌</div>
+                    <div class="option-details">
+                        <div class="option-title">Public Transport Delivery</div>
+                        <div class="option-description">Delivered via taxi/bus route - Free</div>
+                    </div>
+                </div>
+            </label>
+            <label class="btn btn-outline option-label delivery-option-card" data-method="self_pickup">
+                <input type="radio" name="delivery_method" value="self_pickup" id="delivery_pickup" required>
+                <div class="option-content">
+                    <div class="option-icon">🏪</div>
+                    <div class="option-details">
+                        <div class="option-title">Self Pickup from Seller</div>
+                        <div class="option-description">Collect directly from seller - No delivery fee</div>
+                    </div>
+                </div>
+            </label>
+        </div>
+
+        <!-- Pickup Location Info (shown when self pickup is selected) -->
+        <div id="pickupLocationInfo" style="display: none; background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 8px; padding: 1.5rem; margin-top: 1rem;">
+            <h3 style="color: #667eea; margin-bottom: 1rem; font-size: 1.1rem;">📍 Pickup Location</h3>
+            <div style="color: var(--text-primary);">
+                <p><strong>Seller Location:</strong> <span id="sellerLocation">Loading...</span></p>
+                <p style="margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">
+                    💡 Contact the seller after placing your order to arrange pickup time.
+                </p>
+            </div>
+        </div>
+
+        <h2 class="section-title">2. Payment Method</h2>
+        <div class="payment-info" style="background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <div style="font-size: 2.5rem;">🪙</div>
+                <div style="flex: 1;">
+                    <h3 style="color: #667eea; margin-bottom: 0.5rem; font-size: 1.2rem;">SPZ Token Payment</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.95rem;">
+                        All transactions on SparzaFI are processed using SPZ tokens - our secure, in-app digital currency.
+                    </p>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding: 0.75rem; background: rgba(255, 255, 255, 0.5); border-radius: 6px;">
+                        <span style="color: var(--text-primary); font-weight: 500;">Your SPZ Balance:</span>
+                        <span style="color: #667eea; font-size: 1.3rem; font-weight: bold;">{{ user.token_balance|default(0)|round(2) }} SPZ</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; padding: 0.75rem; background: rgba(102, 126, 234, 0.2); border-radius: 6px;">
+                        <span style="color: var(--text-primary); font-weight: 500;">Order Total:</span>
+                        <span style="color: var(--success-color); font-size: 1.3rem; font-weight: bold;">{{ summary.raw_total|round(2) }} SPZ</span>
+                    </div>
+                    {% if user.token_balance|default(0) < summary.raw_total %}
+                    <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(244, 67, 54, 0.1); border: 1px solid rgba(244, 67, 54, 0.3); border-radius: 6px; color: #f44336;">
+                        ⚠️ Insufficient balance. Please add more SPZ tokens to complete this purchase.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <input type="hidden" name="payment_method" value="SPZ">
+        </div>
+
+        <button type="submit" class="btn btn-primary confirm-btn" {% if user.token_balance|default(0) < summary.raw_total %}disabled{% endif %}>
+            {% if user.token_balance|default(0) >= summary.raw_total %}
+                Confirm Order & Pay {{ summary.raw_total|round(2) }} SPZ
+            {% else %}
+                Insufficient SPZ Balance
+            {% endif %}
+        </button>
+        <p class="checkout-notice">
+            🔒 Secure payment powered by SparzaFI blockchain technology.<br>
+            Future: Custodial deposit accounts for seamless in-app transactions.
+        </p>
+
+    </form>
+</div>
+{% endblock %}

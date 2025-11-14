@@ -1,0 +1,320 @@
+================================================================================
+SPARZAFI DATABASE ARCHITECTURE - VISUAL DIAGRAM
+================================================================================
+
+CURRENT STATE: SQLite Only (NO Firebase)
+
+================================================================================
+APPLICATION ARCHITECTURE
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       FLASK WEB APPLICATION                              │
+│                  (8 Blueprints, ~5000+ lines Python)                     │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  ┌────────────────────────────────────────────────────────────────────┐  │
+│  │                      REQUEST FLOW                                   │  │
+│  │                                                                     │  │
+│  │  HTTP Request → Flask Route → get_db_connection() → SQLite Query  │  │
+│  │                                    ↓                               │  │
+│  │                           Raw SQL Execution                        │  │
+│  │                                    ↓                               │  │
+│  │                        db.commit()/rollback()                      │  │
+│  │                                    ↓                               │  │
+│  │                           HTTP Response                            │  │
+│  └────────────────────────────────────────────────────────────────────┘  │
+│                                                                           │
+└─────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+BLUEPRINT MODULES (8 Total)
+================================================================================
+
+auth/               marketplace/           seller/
+├─ Login            ├─ Feed                ├─ Dashboard
+├─ Signup           ├─ Search              ├─ Products
+└─ Forms            └─ Seller profiles     └─ Orders
+
+deliverer/          admin/                 user/
+├─ Dashboard        ├─ Verification       ├─ Buyer dashboard
+├─ Routes           ├─ Moderation         ├─ Orders
+└─ Earnings         └─ Analytics          └─ Addresses
+
+api/                chat/
+├─ Auth             ├─ Conversations
+├─ Fintech          ├─ Messages
+└─ Users            └─ Notifications
+
+
+================================================================================
+DATABASE LAYER (SQLite: sparzafi.db)
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        SQLITE DATABASE                                   │
+│                      (File: sparzafi.db)                                │
+│                     43 Tables, Fully Normalized                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌──────────────────────┐    ┌──────────────────────────────────────┐  │
+│  │   USER MANAGEMENT    │    │    MARKETPLACE & COMMERCE             │  │
+│  ├──────────────────────┤    ├──────────────────────────────────────┤  │
+│  │ • users              │    │ • products                            │  │
+│  │ • sellers            │    │ • videos                              │  │
+│  │ • deliverers         │    │ • reviews                             │  │
+│  │ • verification_sub.  │    │ • transactions                        │  │
+│  │ • audit_logs         │    │ • transaction_items                   │  │
+│  └──────────────────────┘    │ • delivery_tracking                   │  │
+│                              │ • payment_settlements                 │  │
+│  ┌──────────────────────┐    │ • promotion_codes                     │  │
+│  │     FINTECH (SPZ)    │    └──────────────────────────────────────┘  │
+│  ├──────────────────────┤                                               │
+│  │ • token_transactions │    ┌──────────────────────────────────────┐  │
+│  │ • token_balance_hist │    │   DELIVERY SYSTEM                      │  │
+│  │ • withdrawal_request │    ├──────────────────────────────────────┤  │
+│  │ • loyalty_rewards    │    │ • delivery_routes                     │  │
+│  └──────────────────────┘    │ • delivery_tracking                   │  │
+│                              │ • verification_codes                  │  │
+│  ┌──────────────────────┐    └──────────────────────────────────────┘  │
+│  │  COMMUNITY & ADMIN   │                                               │
+│  ├──────────────────────┤    ┌──────────────────────────────────────┐  │
+│  │ • follows            │    │   MESSAGING & NOTIFICATIONS            │  │
+│  │ • seller_likes       │    ├──────────────────────────────────────┤  │
+│  │ • video_likes        │    │ • conversations                       │  │
+│  │ • moderation_queue   │    │ • messages                            │  │
+│  │ • announcements      │    │ • notifications                       │  │
+│  │ • pickup_points      │    └──────────────────────────────────────┘  │
+│  └──────────────────────┘                                               │
+│                              ┌──────────────────────────────────────┐  │
+│                              │   BUYER DASHBOARD (NEW)               │  │
+│                              ├──────────────────────────────────────┤  │
+│                              │ • buyer_addresses                     │  │
+│                              │ • return_requests                     │  │
+│                              │ • buyer_security_actions              │  │
+│                              └──────────────────────────────────────┘  │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+DATA RELATIONSHIPS
+================================================================================
+
+                              ┌─────────────────┐
+                              │     users       │
+                              │                 │
+                              │ id (PK)         │
+                              │ email (UNIQUE)  │
+                              │ user_type       │
+                              │ token_balance   │
+                              └────────┬────────┘
+                      ┌───────────────┼───────────────┐
+                      │               │               │
+              ┌───────▼────────┐  ┌────▼──────┐  ┌────▼─────────┐
+              │   sellers      │  │ deliverers│  │  buyer data  │
+              │                │  │           │  │              │
+              │ products (FK)  │  │ routes    │  │ addresses    │
+              │ videos         │  │ earnings  │  │ orders       │
+              │ verification   │  │ ratings   │  │ returns      │
+              └────────┬───────┘  └──────┬────┘  └──────────────┘
+                       │                 │
+              ┌────────▼─────────────────▼──────────┐
+              │      transactions (FK to both)       │
+              │                                      │
+              │ • items (transaction_items)          │
+              │ • tracking (delivery_tracking)       │
+              │ • settlement (payment_settlements)   │
+              │ • codes (verification_codes)         │
+              └──────────────────────────────────────┘
+
+
+================================================================================
+CORE FEATURE COVERAGE
+================================================================================
+
+✓ MARKETPLACE
+  • Product listings with images (JSON)
+  • Seller profiles & verification
+  • Video galleries (intro/detailed/conclusion)
+  • Reviews (1-5 stars)
+  • Search & filtering by category/price/location
+
+✓ FINTECH (SPZ Token)
+  • Token transactions (deposit/withdrawal/transfer/purchase/refund/reward)
+  • Balance tracking & history
+  • Withdrawal requests with bank details
+  • Loyalty points system
+
+✓ DELIVERY SYSTEM
+  • Vehicle types: Taxi, Motorcycle, Bicycle, Walking
+  • Route-based pricing (base fee + per-km)
+  • 9-status tracking (PENDING → COMPLETED)
+  • Pickup/delivery verification codes
+  • Earnings tracking (daily/weekly/monthly)
+
+✓ BUYER DASHBOARD
+  • Order history & live tracking
+  • Multiple saved addresses
+  • Return/refund requests
+  • Notifications
+  • Loyalty points & referrals
+
+✓ ADMIN TOOLS
+  • User verification (KYC)
+  • Content moderation
+  • Analytics dashboard
+  • Audit logs for all actions
+  • Tax/VAT compliance
+  • Settlement management
+
+
+================================================================================
+KEY STATISTICS
+================================================================================
+
+Database Type:          SQLite (File: sparzafi.db)
+Total Tables:           43
+Total Fields:           ~250+
+Foreign Keys:           Fully defined
+Indexes:                ~30+ composite indexes
+ORM Used:               NONE (Direct SQL)
+Connection Pooling:     NO
+Schema Versioning:      Manual Python scripts
+Test Coverage:          ~5%
+Documentation:          Good
+
+Files Accessing DB:     30+ (Tight coupling)
+Largest File:           config.py (650 lines with schema)
+Most Accessed Table:    users (8+ routes access directly)
+
+Firebase Integration:   NONE (0 references)
+Firebase Status:        Not started
+
+
+================================================================================
+CURRENT ARCHITECTURE ISSUES
+================================================================================
+
+⚠️  No Connection Pooling
+    └─ New SQLite connection created per request
+       Not scalable for high traffic
+
+⚠️  No ORM/Query Builder
+    └─ Raw SQL throughout codebase
+       SQL injection vulnerability potential
+       Hard to maintain and refactor
+
+⚠️  Manual Transaction Management
+    └─ db.commit() and db.rollback() scattered
+       Inconsistent error handling
+       Transaction safety issues
+
+⚠️  Tight Database Coupling
+    └─ 30+ files contain get_db_connection() calls
+       No abstraction layer
+       Difficult to switch databases
+
+⚠️  No Schema Versioning
+    └─ Migrations are manual Python scripts
+       No automatic rollback support
+       Hard to track changes
+
+⚠️  Session-Based Cart Storage
+    └─ Shopping cart in Flask session
+       Lost on browser close
+       Not persistent
+
+
+================================================================================
+WHAT'S NOT IMPLEMENTED (Gaps)
+================================================================================
+
+❌ Email Verification
+   └─ Function called but implementation missing
+      Email configuration exists but workflow incomplete
+
+❌ Referral System
+   └─ referred_by field in users table
+      Code references referrals table but table doesn't exist
+      Incomplete implementation
+
+❌ KYC Verification Workflow
+   └─ Tables exist (verification_submissions)
+       But workflow/approval process unclear
+       Admin approval logic incomplete
+
+
+================================================================================
+FIREBASE MIGRATION STATUS
+================================================================================
+
+Current Firebase Integration:    NONE ✗
+Firebase Code References:        0 found
+Firebase Configuration:          Not present
+Firestore Implementation:        Not started
+Firebase Admin SDK:             Not in dependencies
+Migration Planning:             Not started
+
+IF FIREBASE WERE IMPLEMENTED:
+
+Estimated Effort:    85-125 hours
+Files to Change:     35+ files
+Complexity:          High (JOINs → subcollections)
+Cost Impact:         Read/Write per operation pricing
+Alternative:         Hybrid approach (SQLite + Firestore for real-time)
+
+
+================================================================================
+RECOMMENDATIONS
+================================================================================
+
+BEFORE PRODUCTION SCALING:
+  1. Add connection pooling (pgbouncer or similar)
+  2. Implement SQLAlchemy ORM
+  3. Add comprehensive tests
+  4. Fix email verification
+  5. Complete referral system
+
+FOR FIREBASE READINESS (If needed):
+  1. Create data access layer
+  2. Implement repository pattern
+  3. Add integration tests
+  4. Refactor complex SQL JOINs
+
+FOR FIREBASE MIGRATION (If decided):
+  1. Phase approach: Read → Write → Transactions
+  2. Run SQLite + Firestore in parallel
+  3. Validate data consistency
+  4. Use Firestore for real-time features only
+  5. Keep SQLite for transactional data
+
+
+================================================================================
+SUMMARY
+================================================================================
+
+SparzaFI is a COMPLETE, FUNCTIONAL Flask+SQLite marketplace application with:
+
+✓ 43 normalized database tables
+✓ 8 Flask blueprints with clear separation of concerns
+✓ Comprehensive fintech system (SPZ tokens)
+✓ Full delivery management with route pricing
+✓ Buyer, Seller, Deliverer, Admin dashboards
+✓ Messaging, notifications, reviews, ratings
+✓ Verification, moderation, audit logging
+
+BUT:
+
+✗ NOT using Firebase (0 references)
+✗ NOT scalable (no connection pooling)
+✗ NOT migrating (no Firebase code)
+✗ Direct SQLite coupling throughout
+✗ Low test coverage (~5%)
+
+CURRENT STATE: Production-ready for small-medium scale, needs refactoring for
+               large-scale deployment. Firebase integration would require
+               major refactoring with estimated 85-125 hours of work.
+
+================================================================================

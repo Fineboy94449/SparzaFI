@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Transactions Log | Bizzy Street{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Platform Transactions Log 💸</h1>
+    <p>A comprehensive view of all purchase transactions on Bizzy Street.</p>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Timestamp</th>
+                    <th>Buyer</th>
+                    <th>Seller</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Payment</th>
+                    <th>Delivery</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tx in transactions %}
+                <tr>
+                    <td>#{{ tx.id }}</td>
+                    <td>{{ tx.timestamp.split(' ')[0] }}</td>
+                    <td>{{ tx.user_email }}</td>
+                    <td>{{ tx.seller_name|default('N/A') }}</td>
+                    <td style="font-weight: bold; color: var(--success-color);">{{ tx.display_amount }}</td>
+                    <td><span class="status-{{ tx.status.lower() }}">{{ tx.status }}</span></td>
+                    <td>{{ tx.payment_method }}</td>
+                    <td>{{ tx.delivery_method.replace('_', ' ')|title }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" style="text-align: center; padding: 2rem;">No transactions recorded.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Order Confirmed | Bizzy Street{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 600px; text-align: center; padding-top: 4rem;">
+    <h1 style="font-size: 3rem; color: var(--success-color);">🎉 Order Confirmed!</h1>
+    <p style="font-size: 1.2rem; margin-bottom: 2rem; color: var(--text-primary);">
+        Thank you for supporting local businesses on Bizzy Street.
+    </p>
+
+    <div class="card" style="padding: 2rem;">
+        <h2 style="border: none; font-size: 1.5rem; margin-bottom: 1.5rem;">What Happens Next?</h2>
+        <p style="margin-bottom: 1rem;">
+            The seller has been notified of your purchase and will contact you shortly to confirm the logistics of your **delivery** or **collection**.
+        </p>
+        <p style="font-style: italic; color: var(--accent-color);">
+            Please check your email for a detailed receipt and seller contact information.
+        </p>
+    </div>
+
+    <a href="{{ url_for('feed') }}" class="btn btn-primary" style="margin-top: 2rem; padding: 1rem 2rem;">
+        Continue Browsing
+    </a>
+</div>
+{% endblock %}

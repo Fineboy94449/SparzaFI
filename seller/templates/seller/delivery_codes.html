@@ -1,0 +1,384 @@
+{% extends "base.html" %}
+
+{% block title %}Buyer Delivery Codes - Seller Dashboard - SparzaFI{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --accent-color: #06b6d4;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --danger-color: #ef4444;
+    }
+
+    .dashboard-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+
+    .dashboard-header {
+        background: var(--card-bg);
+        border: 2px solid var(--accent-color);
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 0 20px rgba(6, 182, 212, 0.2);
+    }
+
+    .header-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--accent-color);
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+    }
+
+    .header-subtitle {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--accent-color);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .codes-grid {
+        display: grid;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .code-card {
+        background: var(--card-bg);
+        border: 2px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1.5rem;
+        transition: all 0.3s;
+        position: relative;
+    }
+
+    .code-card:hover {
+        border-color: var(--accent-color);
+        box-shadow: 0 4px 12px rgba(6, 182, 212, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .code-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .order-id {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--accent-color);
+    }
+
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .status-ready {
+        background: var(--success-color);
+        color: #fff;
+    }
+
+    .status-transit {
+        background: var(--warning-color);
+        color: #000;
+    }
+
+    .status-picked {
+        background: #6366f1;
+        color: #fff;
+    }
+
+    .code-display {
+        background: rgba(6, 182, 212, 0.1);
+        border: 3px dashed var(--accent-color);
+        border-radius: 12px;
+        padding: 2rem;
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .code-label {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .code-value {
+        font-size: 3rem;
+        font-weight: 700;
+        color: var(--accent-color);
+        font-family: 'Courier New', monospace;
+        letter-spacing: 0.5rem;
+        text-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+    }
+
+    .order-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .detail-item {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .detail-label {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.25rem;
+    }
+
+    .detail-value {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-primary {
+        background: var(--accent-color);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #0891b2;
+        transform: translateY(-2px);
+    }
+
+    .btn-copy {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-copy:hover {
+        background: #059669;
+        transform: translateY(-2px);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-secondary);
+    }
+
+    .empty-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+    }
+
+    .info-banner {
+        background: rgba(6, 182, 212, 0.1);
+        border-left: 4px solid var(--accent-color);
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+    }
+
+    .info-banner strong {
+        color: var(--accent-color);
+    }
+
+    .copy-notification {
+        position: fixed;
+        top: 2rem;
+        right: 2rem;
+        background: var(--success-color);
+        color: white;
+        padding: 1rem 2rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        opacity: 0;
+        transform: translateY(-20px);
+        transition: all 0.3s;
+        z-index: 1000;
+    }
+
+    .copy-notification.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    @media (max-width: 768px) {
+        .code-value {
+            font-size: 2rem;
+            letter-spacing: 0.3rem;
+        }
+
+        .order-details {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Header -->
+    <div class="dashboard-header">
+        <h1 class="header-title">Buyer Delivery Codes</h1>
+        <p class="header-subtitle">View delivery codes generated by buyers for order pickup</p>
+    </div>
+
+    <!-- Info Banner -->
+    <div class="info-banner">
+        <strong>How it works:</strong> Buyers generate 6-digit codes when they're ready to receive their orders.
+        Share these codes with your delivery driver so they can verify delivery.
+    </div>
+
+    <!-- Orders with Delivery Codes -->
+    <h2 class="section-title">Active Delivery Codes ({{ orders|length }})</h2>
+
+    <div class="codes-grid">
+        {% if orders %}
+            {% for order in orders %}
+            <div class="code-card">
+                <div class="code-header">
+                    <span class="order-id">Order #{{ order.id }}</span>
+                    <span class="status-badge status-{{ 'ready' if order.status == 'READY_FOR_PICKUP' else 'transit' if order.status == 'IN_TRANSIT' else 'picked' }}">
+                        {{ order.status.replace('_', ' ') }}
+                    </span>
+                </div>
+
+                <!-- Delivery Code Display -->
+                {% if order.delivery_code %}
+                <div class="code-display">
+                    <div class="code-label">Buyer Delivery Code</div>
+                    <div class="code-value" id="code-{{ order.id }}">{{ order.delivery_code }}</div>
+                    <button class="btn btn-copy" onclick="copyCode('{{ order.delivery_code }}', {{ order.id }})">
+                        📋 Copy Code
+                    </button>
+                </div>
+                {% endif %}
+
+                <!-- Order Details -->
+                <div class="order-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Buyer</span>
+                        <span class="detail-value">{{ order.buyer_email }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Order Amount</span>
+                        <span class="detail-value">R{{ "%.2f"|format(order.total_amount) }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Driver</span>
+                        <span class="detail-value">{{ order.deliverer_name if order.deliverer_name else "Unassigned" }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Order Date</span>
+                        <span class="detail-value">{{ order.timestamp[:10] }}</span>
+                    </div>
+                </div>
+
+                <!-- Delivery Address -->
+                <div class="detail-item" style="margin-bottom: 1rem;">
+                    <span class="detail-label">Delivery Address</span>
+                    <span class="detail-value">{{ order.delivery_address }}</span>
+                </div>
+
+                <!-- Actions -->
+                <div class="action-buttons">
+                    <a href="/seller/order/{{ order.id }}/download-slip" class="btn btn-primary">📄 Download Slip</a>
+                    {% if order.pickup_code %}
+                    <button class="btn btn-copy" onclick="copyCode('{{ order.pickup_code }}', 'pickup-{{ order.id }}')">
+                        📦 Copy Pickup Code: {{ order.pickup_code }}
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">📱</div>
+                <h3>No Active Delivery Codes</h3>
+                <p>Buyers haven't generated any delivery codes yet. Codes will appear here when buyers are ready to receive their orders.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Copy Notification -->
+<div id="copyNotification" class="copy-notification">
+    ✓ Code copied to clipboard!
+</div>
+
+<script>
+function copyCode(code, orderId) {
+    // Copy to clipboard
+    navigator.clipboard.writeText(code).then(() => {
+        // Show notification
+        const notification = document.getElementById('copyNotification');
+        notification.classList.add('show');
+
+        // Hide after 2 seconds
+        setTimeout(() => {
+            notification.classList.remove('show');
+        }, 2000);
+
+        // Visual feedback on the code
+        const codeElement = document.getElementById('code-' + orderId);
+        if (codeElement) {
+            const originalColor = codeElement.style.color;
+            codeElement.style.color = '#10b981';
+            setTimeout(() => {
+                codeElement.style.color = originalColor;
+            }, 500);
+        }
+    }).catch(err => {
+        alert('Failed to copy code: ' + err);
+    });
+}
+
+// Auto-refresh every 30 seconds to check for new codes
+setInterval(() => {
+    // Only reload if user is actively viewing the page
+    if (document.visibilityState === 'visible') {
+        location.reload();
+    }
+}, 30000);
+</script>
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Deliverer Setup - SparzaFI{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 800px;">
+    <h1>📦 Become a Deliverer</h1>
+    <p style="margin-bottom: 2rem;">Join our community delivery network and earn by delivering products - whether you walk, cycle, ride, or drive!</p>
+
+    {% if error %}
+    <div class="alert alert-error">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <h2>Step 1: Basic Information</h2>
+        <p style="margin-bottom: 1.5rem;">Tell us about yourself and your delivery setup.</p>
+
+        <form method="POST" action="{{ url_for('deliverer.setup') }}">
+            <div class="form-group">
+                <label class="form-label">ID or License Number *</label>
+                <input type="text"
+                       name="license_number"
+                       class="form-control"
+                       placeholder="e.g., ID123456 or DL123456"
+                       required>
+                <small style="color: var(--text-secondary); font-size: 0.85rem;">Your ID number or driver's license (if applicable)</small>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Transport Method *</label>
+                <select name="vehicle_type" class="form-control" required>
+                    <option value="">Select transport method...</option>
+                    <option value="Walking">🚶 Walking</option>
+                    <option value="Bicycle">🚲 Bicycle</option>
+                    <option value="Motorcycle">🏍️ Motorcycle</option>
+                    <option value="Minibus Taxi">🚐 Minibus Taxi / Car</option>
+                </select>
+                <small style="color: var(--text-secondary); font-size: 0.85rem;">Choose your primary delivery method</small>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Vehicle Registration (Optional)</label>
+                <input type="text"
+                       name="vehicle_registration"
+                       class="form-control"
+                       placeholder="e.g., GP 12345">
+                <small style="color: var(--text-secondary); font-size: 0.85rem;">Only required for motorized vehicles (motorcycle, taxi, car)</small>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Route Description</label>
+                <textarea name="route"
+                          class="form-control"
+                          rows="3"
+                          placeholder="e.g., Soweto - Johannesburg CBD - Sandton"
+                          style="resize: vertical;"></textarea>
+                <small style="color: var(--text-secondary); font-size: 0.85rem;">Main route or areas you operate in (you'll set detailed routes next)</small>
+            </div>
+
+            <div style="background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 8px; padding: 1rem; margin: 1.5rem 0;">
+                <h3 style="margin-bottom: 0.5rem; font-size: 1rem;">📋 Next Steps</h3>
+                <p style="margin: 0; font-size: 0.9rem;">After registration, you'll:</p>
+                <ol style="margin: 0.5rem 0 0 1.5rem; font-size: 0.9rem; line-height: 1.8;">
+                    <li>Add specific delivery routes with pricing</li>
+                    <li>Set your base fees and per-kilometer rates</li>
+                    <li>Get verified by our admin team</li>
+                    <li>Start accepting deliveries!</li>
+                </ol>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">
+                    Continue to Route Setup →
+                </button>
+                <a href="{{ url_for('marketplace.feed') }}" class="btn btn-outline">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <div class="card" style="background: rgba(72, 187, 120, 0.05); border-color: rgba(72, 187, 120, 0.2);">
+        <h3>💰 Earnings Overview</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+            <div>
+                <p style="font-size: 0.9rem; margin-bottom: 0.25rem;">You Set Prices</p>
+                <p style="font-weight: 600; color: var(--success-color); font-size: 1.1rem;">R5-R100 base + R3-R50/km</p>
+            </div>
+            <div>
+                <p style="font-size: 0.9rem; margin-bottom: 0.25rem;">Platform Fee</p>
+                <p style="font-weight: 600; color: var(--warning-color); font-size: 1.1rem;">15% of delivery fee</p>
+            </div>
+            <div>
+                <p style="font-size: 0.9rem; margin-bottom: 0.25rem;">You Keep</p>
+                <p style="font-weight: 600; color: var(--success-color); font-size: 1.1rem;">85% of delivery fee</p>
+            </div>
+        </div>
+        <p style="margin-top: 1rem; font-size: 0.85rem;">Example: R50 delivery = R42.50 for you, R7.50 platform fee</p>
+    </div>
+</div>
+{% endblock %}

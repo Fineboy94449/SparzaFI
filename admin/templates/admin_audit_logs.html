@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Logs - Bizzy Street{% endblock %}
+
+{% block extra_css %}
+<style>
+    .logs-table {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.04);
+        border-radius: 14px;
+        overflow: hidden;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    thead {
+        background: linear-gradient(90deg, #667eea, #764ba2);
+    }
+    
+    th {
+        padding: 1.25rem;
+        text-align: left;
+        font-weight: bold;
+        color: white;
+    }
+    
+    td {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    
+    tbody tr:hover {
+        background: rgba(255,122,24,0.05);
+    }
+    
+    .action-badge {
+        display: inline-block;
+        padding: 0.4rem 0.8rem;
+        border-radius: 5px;
+        font-size: 0.85rem;
+        font-weight: bold;
+    }
+    
+    .approve {
+        background: rgba(72, 187, 120, 0.2);
+        color: #48bb78;
+    }
+    
+    .reject {
+        background: rgba(255, 107, 107, 0.2);
+        color: #ff6b6b;
+    }
+    
+    .send {
+        background: rgba(102, 126, 234, 0.2);
+        color: #667eea;
+    }
+    
+    .remove {
+        background: rgba(255, 122, 24, 0.2);
+        color: #ff7a18;
+    }
+    
+    .timestamp {
+        font-size: 0.9rem;
+        color: #94a3b8;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>📋 Audit Logs & Activity History</h1>
+<p style="color: #94a3b8;">Complete record of all admin actions and platform changes</p>
+
+<div class="logs-table" style="margin-top: 2rem;">
+    <table>
+        <thead>
+            <tr>
+                <th>Admin</th>
+                <th>Action</th>
+                <th>Entity Type</th>
+                <th>Entity ID</th>
+                <th>Changes</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ log.admin_email }}</td>
+                <td>
+                    <span class="action-badge {% if 'approve' in log.action %}approve{% elif 'reject' in log.action %}reject{% elif 'send' in log.action %}send{% elif 'remove' in log.action %}remove{% endif %}">
+                        {{ log.action|replace('_', ' ')|upper }}
+                    </span>
+                </td>
+                <td>{{ log.entity_type }}</td>
+                <td>#{{ log.entity_id }}</td>
+                <td style="font-size: 0.9rem;">
+                    {% if log.old_value or log.new_value %}
+                        <span style="color: #ff6b6b;">{{ log.old_value }}</span> → <span style="color: #48bb78;">{{ log.new_value }}</span>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td class="timestamp">{{ log.created_at }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

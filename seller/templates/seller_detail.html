@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}{{ seller.name }}'s Store | Bizzy Street{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div style="background: var(--dark-bg); border-radius: 16px; padding: 2rem; border: 1px solid var(--border-color); margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+            <div>
+                <h1 style="margin-bottom: 0.5rem; color: var(--accent-color);">{{ seller.name }}</h1>
+                <p style="font-size: 1rem; color: var(--text-secondary);">@{{ seller.handle }} | 📍 {{ seller.location }} 
+                {% if seller.verification_status == 'verified' %}
+                    <span class="status-verified"> (Verified Seller)</span>
+                {% endif %}</p>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                {% if session.get('user') and session.user.get('id') != seller.user_id %}
+                <button onclick="startChatWith({{ seller.user_id }}, '{{ seller.email }}')"
+                        class="btn btn-outline btn-large"
+                        style="min-width: 140px;">
+                    💬 Contact Seller
+                </button>
+                {% endif %}
+                <button id="follow-btn"
+                        data-seller-id="{{ seller.id }}"
+                        class="btn btn-primary btn-large"
+                        style="min-width: 120px;">
+                    {{ 'Following 💖' if seller.is_following else 'Follow ✨' }}
+                </button>
+            </div>
+        </div>
+
+        <p style="font-style: italic; margin-bottom: 2rem; border-left: 3px solid var(--accent-color); padding-left: 1rem;">
+            Bio: {{ seller.bio }}
+        </p>
+
+        <h2 style="margin-top: 2rem;">Product Catalog</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+            {% for product in seller.products %}
+            <div class="card" style="padding: 1rem;">
+                <h3 style="font-size: 1.2rem; color: var(--text-primary); margin-bottom: 0.5rem;">{{ product.name }}</h3>
+                <p style="font-size: 0.9rem; margin-bottom: 1rem; min-height: 40px;">{{ product.description }}</p>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
+                    <span style="font-size: 1.3rem; font-weight: bold; color: var(--success-color);">R{{ product.price|round(2) }}</span>
+                    <a href="{{ url_for('add_to_cart', product_id=product.id) }}" class="btn btn-primary">Add to Cart 🛍️</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <h2 style="margin-top: 2rem;">Latest Videos</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+            {% for video in seller.videos %}
+            <div class="card" style="padding: 1rem;">
+                <img src="{{ video.video_url }}" alt="Video Thumbnail" style="width: 100%; height: 250px; object-fit: cover; border-radius: 8px; margin-bottom: 0.75rem;">
+                <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;">{{ video.title }}</h3>
+                <p style="font-size: 0.85rem;">{{ video.caption }}</p>
+            </div>
+            {% endfor %}
+        </div>
+        
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('follow-btn').addEventListener('click', async function() {
+        const sellerId = this.dataset.sellerId;
+        const response = await fetch(`/follow/${sellerId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+
+        if (response.ok) {
+            if (data.following) {
+                this.textContent = 'Following 💖';
+                this.classList.add('btn-primary');
+                this.classList.remove('btn-outline');
+            } else {
+                this.textContent = 'Follow ✨';
+                this.classList.remove('btn-primary');
+                this.classList.add('btn-outline');
+            }
+        } else {
+            alert('Error: ' + data.error);
+        }
+    });
+</script>
+{% endblock %}

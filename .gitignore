@@ -1,0 +1,113 @@
+# SparzaFI .gitignore
+
+# ==================== ENVIRONMENT & SECRETS ====================
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+secrets/
+
+# ==================== DATABASE ====================
+*.db
+*.sqlite
+*.sqlite3
+instance/*.db
+sparzafi.db
+
+# ==================== PYTHON ====================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ==================== VIRTUAL ENVIRONMENTS ====================
+.venv/
+venv/
+ENV/
+env/
+.virtualenv/
+
+# ==================== IDE & EDITORS ====================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# ==================== FLASK ====================
+instance/
+.webassets-cache
+flask_session/
+
+# ==================== UPLOADS ====================
+static/uploads/*
+!static/uploads/.gitkeep
+
+# ==================== LOGS ====================
+*.log
+logs/
+*.out
+
+# ==================== TESTING ====================
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# ==================== DOCUMENTATION ====================
+docs/_build/
+site/
+
+# ==================== TEMPORARY FILES ====================
+*.tmp
+*.bak
+*.backup
+temp/
+tmp/
+
+# ==================== OS SPECIFIC ====================
+Thumbs.db
+Desktop.ini
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ==================== DEPLOYMENT ====================
+*.pid
+*.seed
+*.pid.lock
+
+# ==================== CERTIFICATES ====================
+*.crt
+*.ca-bundle
+*.cer
+*.p12
+*.p7b
+*.spc
+*.pfx
