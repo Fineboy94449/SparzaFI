@@ -8,6 +8,10 @@
 *.pem
 secrets/
 
+# Firebase
+firebase-service-account.json
+*-firebase-adminsdk-*.json
+
 # ==================== DATABASE ====================
 *.db
 *.sqlite
