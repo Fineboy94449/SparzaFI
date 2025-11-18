@@ -205,7 +205,7 @@ def generate_delivery_code(order_id):
         return jsonify({'success': False, 'error': 'Access denied'}), 404
 
     # Import the utility function
-    from deliverer.utils import create_delivery_code
+    from deliverer.firebase_verification_codes import create_delivery_code
 
     result = create_delivery_code(order_id, user['id'])
 

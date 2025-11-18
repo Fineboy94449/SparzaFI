@@ -1,104 +1,138 @@
 """
-Buyer Dashboard Module
+Buyer Dashboard Module - Migrated to Firebase
 Comprehensive buyer features including order tracking, returns, ratings, and more
 """
 
 from flask import render_template, redirect, url_for, session, request, jsonify, send_file
 from shared.utils import login_required
-from database_seed import get_db_connection
 from datetime import datetime
 import random
 import csv
 import io
 import json
 
+# Firebase imports
+from firebase_db import (
+    transaction_service,
+    seller_service,
+    deliverer_service,
+    get_product_service,
+    get_notification_service,
+    review_service,
+    delivery_tracking_service
+)
+from firebase_config import get_firestore_db
+from google.cloud.firestore_v1.base_query import FieldFilter
+from google.cloud import firestore
+
+
 def generate_delivery_code():
     """Generate a unique 6-digit delivery verification code"""
     return f"{random.randint(100000, 999999)}"
 
+
 def send_notification(user_id, title, message, notification_type='order', related_id=None):
     """Helper function to send notifications"""
-    conn = get_db_connection()
+    notification_service = get_notification_service()
     try:
-        conn.execute("""
-            INSERT INTO notifications (user_id, title, message, notification_type, related_id)
-            VALUES (?, ?, ?, ?, ?)
-        """, (user_id, title, message, notification_type, related_id))
-        conn.commit()
+        notification_data = {
+            'title': title,
+            'message': message,
+            'notification_type': notification_type,
+            'related_id': related_id,
+            'is_read': False,
+            'created_at': firestore.SERVER_TIMESTAMP
+        }
+        notification_service.create(user_id, notification_data)
         return True
     except Exception as e:
         print(f"Notification error: {e}")
         return False
-    finally:
-        conn.close()
+
 
 def buyer_dashboard():
     """Main buyer dashboard with order overview"""
     user = session.get('user')
-    conn = get_db_connection()
+    db = get_firestore_db()
+    product_service = get_product_service()
 
-    # Get active orders
-    active_orders = conn.execute("""
-        SELECT t.*, s.name as seller_name, s.handle as seller_handle,
-               d.id as deliverer_user_id,
-               COUNT(ti.id) as item_count
-        FROM transactions t
-        LEFT JOIN sellers s ON t.seller_id = s.id
-        LEFT JOIN deliverers d ON t.deliverer_id = d.id
-        LEFT JOIN transaction_items ti ON t.id = ti.transaction_id
-        WHERE t.user_id = ? AND t.status NOT IN ('COMPLETED', 'CANCELLED', 'REFUNDED')
-        GROUP BY t.id
-        ORDER BY t.timestamp DESC
-        LIMIT 10
-    """, (user['id'],)).fetchall()
+    # Get all transactions for user
+    user_transactions = transaction_service.get_by_user(user['id'])
 
-    # Get recent completed orders
-    completed_orders = conn.execute("""
-        SELECT t.*, s.name as seller_name, s.handle as seller_handle,
-               COUNT(ti.id) as item_count
-        FROM transactions t
-        LEFT JOIN sellers s ON t.seller_id = s.id
-        LEFT JOIN transaction_items ti ON t.id = ti.transaction_id
-        WHERE t.user_id = ? AND t.status IN ('COMPLETED', 'CANCELLED', 'REFUNDED')
-        GROUP BY t.id
-        ORDER BY t.timestamp DESC
-        LIMIT 5
-    """, (user['id'],)).fetchall()
+    # Split into active and completed
+    active_orders = []
+    completed_orders = []
+
+    for trans in user_transactions:
+        # Add seller info
+        if trans.get('seller_id'):
+            seller = seller_service.get(trans['seller_id'])
+            if seller:
+                trans['seller_name'] = seller.get('name', '')
+                trans['seller_handle'] = seller.get('handle', '')
+
+        # Add deliverer info
+        if trans.get('deliverer_id'):
+            deliverer = deliverer_service.get(trans['deliverer_id'])
+            if deliverer:
+                trans['deliverer_user_id'] = deliverer.get('user_id')
+
+        # Count items
+        trans['item_count'] = len(trans.get('items', []))
+
+        # Categorize
+        if trans.get('status') in ['COMPLETED', 'CANCELLED', 'REFUNDED']:
+            if len(completed_orders) < 5:
+                completed_orders.append(trans)
+        else:
+            if len(active_orders) < 10:
+                active_orders.append(trans)
+
+    # Sort by timestamp
+    active_orders = sorted(active_orders, key=lambda x: x.get('timestamp', ''), reverse=True)[:10]
+    completed_orders = sorted(completed_orders, key=lambda x: x.get('timestamp', ''), reverse=True)[:5]
 
     # Get unread notifications
-    notifications = conn.execute("""
-        SELECT * FROM notifications
-        WHERE user_id = ? AND is_read = 0
-        ORDER BY created_at DESC
-        LIMIT 5
-    """, (user['id'],)).fetchall()
+    notification_service = get_notification_service()
+    all_notifications = notification_service.get_by_user(user['id'])
+    notifications = [n for n in all_notifications if not n.get('is_read', False)][:5]
 
     # Get pending returns
-    pending_returns = conn.execute("""
-        SELECT r.*, t.id as transaction_id, s.name as seller_name
-        FROM return_requests r
-        JOIN transactions t ON r.transaction_id = t.id
-        JOIN sellers s ON r.seller_id = s.id
-        WHERE r.user_id = ? AND r.status NOT IN ('COMPLETED', 'REJECTED')
-        ORDER BY r.created_at DESC
-    """, (user['id'],)).fetchall()
+    return_requests_ref = db.collection('return_requests')
+    return_query = return_requests_ref.where(filter=FieldFilter('user_id', '==', user['id']))
+    pending_returns = []
+
+    for doc in return_query.stream():
+        return_data = doc.to_dict()
+        return_data['id'] = doc.id
+
+        if return_data.get('status') not in ['COMPLETED', 'REJECTED']:
+            # Get transaction and seller info
+            if return_data.get('transaction_id'):
+                trans = transaction_service.get(return_data['transaction_id'])
+                if trans:
+                    return_data['transaction_id'] = trans.get('id')
+
+            if return_data.get('seller_id'):
+                seller = seller_service.get(return_data['seller_id'])
+                if seller:
+                    return_data['seller_name'] = seller.get('name', '')
+
+            pending_returns.append(return_data)
 
     # Calculate stats
-    total_orders = conn.execute("""
-        SELECT COUNT(*) as count FROM transactions WHERE user_id = ?
-    """, (user['id'],)).fetchone()['count']
-
-    total_spent = conn.execute("""
-        SELECT COALESCE(SUM(total_amount), 0) as total
-        FROM transactions
-        WHERE user_id = ? AND status NOT IN ('CANCELLED', 'REFUNDED')
-    """, (user['id'],)).fetchone()['total']
+    total_orders = len(user_transactions)
+    total_spent = sum(
+        float(t.get('total_amount', 0))
+        for t in user_transactions
+        if t.get('status') not in ['CANCELLED', 'REFUNDED']
+    )
 
     dashboard_data = {
-        'active_orders': [dict(o) for o in active_orders],
-        'completed_orders': [dict(o) for o in completed_orders],
-        'notifications': [dict(n) for n in notifications],
-        'pending_returns': [dict(r) for r in pending_returns],
+        'active_orders': active_orders,
+        'completed_orders': completed_orders,
+        'notifications': notifications,
+        'pending_returns': pending_returns,
         'stats': {
             'total_orders': total_orders,
             'total_spent': total_spent,
@@ -107,166 +141,172 @@ def buyer_dashboard():
         }
     }
 
-    conn.close()
     return render_template('buyer/dashboard.html', data=dashboard_data)
+
 
 def order_tracking(order_id):
     """Detailed order tracking with timeline"""
     user = session.get('user')
-    conn = get_db_connection()
+    db = get_firestore_db()
+    product_service = get_product_service()
 
     # Get order details
-    order = conn.execute("""
-        SELECT t.*, s.name as seller_name, s.handle as seller_handle,
-               s.location as seller_location, s.id as seller_id,
-               d.id as deliverer_user_id, d.name as deliverer_name
-        FROM transactions t
-        LEFT JOIN sellers s ON t.seller_id = s.id
-        LEFT JOIN deliverers d ON t.deliverer_id = d.id
-        WHERE t.id = ? AND t.user_id = ?
-    """, (order_id, user['id'])).fetchone()
+    order = transaction_service.get(order_id)
 
-    if not order:
+    if not order or order.get('user_id') != user['id']:
         return jsonify({'error': 'Order not found'}), 404
 
-    order_dict = dict(order)
+    # Add seller info
+    if order.get('seller_id'):
+        seller = seller_service.get(order['seller_id'])
+        if seller:
+            order['seller_name'] = seller.get('name', '')
+            order['seller_handle'] = seller.get('handle', '')
+            order['seller_location'] = seller.get('location', '')
+            order['seller_id'] = order['seller_id']
 
-    # Get order items
-    items = conn.execute("""
-        SELECT ti.*, p.name as product_name, p.images
-        FROM transaction_items ti
-        JOIN products p ON ti.product_id = p.id
-        WHERE ti.transaction_id = ?
-    """, (order_id,)).fetchall()
-    order_dict['items'] = [dict(i) for i in items]
+    # Add deliverer info
+    if order.get('deliverer_id'):
+        deliverer = deliverer_service.get(order['deliverer_id'])
+        if deliverer:
+            order['deliverer_user_id'] = deliverer.get('user_id')
+            order['deliverer_name'] = deliverer.get('name', '')
+
+    # Add product details to items
+    items = order.get('items', [])
+    for item in items:
+        if item.get('product_id'):
+            product = product_service.get(item['product_id'])
+            if product:
+                item['product_name'] = product.get('name', '')
+                item['images'] = product.get('images', [])
+
+    order['items'] = items
 
     # Get tracking timeline
-    tracking = conn.execute("""
-        SELECT * FROM delivery_tracking
-        WHERE transaction_id = ?
-        ORDER BY created_at ASC
-    """, (order_id,)).fetchall()
-    order_dict['tracking'] = [dict(t) for t in tracking]
+    tracking = delivery_tracking_service.get_by_transaction(order_id)
+    order['tracking'] = sorted(tracking, key=lambda x: x.get('created_at', ''))
 
     # Check if review exists
-    review = conn.execute("""
-        SELECT * FROM reviews
-        WHERE user_id = ? AND transaction_id = ?
-    """, (user['id'], order_id)).fetchone()
-    order_dict['has_review'] = review is not None
+    user_reviews = review_service.get_by_user(user['id'])
+    has_review = any(r.get('transaction_id') == order_id for r in user_reviews)
+    order['has_review'] = has_review
 
-    deliverer_review = conn.execute("""
-        SELECT * FROM deliverer_reviews
-        WHERE user_id = ? AND transaction_id = ?
-    """, (user['id'], order_id)).fetchone()
-    order_dict['has_deliverer_review'] = deliverer_review is not None
+    # Check deliverer review
+    deliverer_reviews_ref = db.collection('deliverer_reviews')
+    deliverer_review_query = deliverer_reviews_ref.where(filter=FieldFilter('user_id', '==', user['id'])).where(filter=FieldFilter('transaction_id', '==', order_id))
+    has_deliverer_review = len(list(deliverer_review_query.limit(1).stream())) > 0
+    order['has_deliverer_review'] = has_deliverer_review
 
-    conn.close()
-    return render_template('buyer/order_tracking.html', order=order_dict)
+    return render_template('buyer/order_tracking.html', order=order)
+
 
 def generate_delivery_code_endpoint(order_id):
     """Generate delivery verification code for buyer"""
     user = session.get('user')
-    conn = get_db_connection()
 
     # Verify order belongs to buyer
-    order = conn.execute("""
-        SELECT * FROM transactions
-        WHERE id = ? AND user_id = ?
-    """, (order_id, user['id'])).fetchone()
+    order = transaction_service.get(order_id)
 
-    if not order:
+    if not order or order.get('user_id') != user['id']:
         return jsonify({'success': False, 'error': 'Order not found'}), 404
 
     # Generate code
     code = generate_delivery_code()
 
     # Update order
-    conn.execute("""
-        UPDATE transactions
-        SET delivery_code = ?
-        WHERE id = ?
-    """, (code, order_id))
-    conn.commit()
+    transaction_service.update(order_id, {'delivery_code': code})
 
     # Send notification to deliverer
-    if order['deliverer_id']:
-        send_notification(
-            order['deliverer_id'],
-            'Delivery Code Generated',
-            f'Buyer generated delivery code for order #{order_id}',
-            'delivery',
-            order_id
-        )
+    if order.get('deliverer_id'):
+        deliverer = deliverer_service.get(order['deliverer_id'])
+        if deliverer and deliverer.get('user_id'):
+            send_notification(
+                deliverer['user_id'],
+                'Delivery Code Generated',
+                f'Buyer generated delivery code for order #{order_id}',
+                'delivery',
+                order_id
+            )
 
-    conn.close()
     return jsonify({'success': True, 'code': code})
+
 
 def request_return(order_id):
     """Submit a return request"""
     user = session.get('user')
-    conn = get_db_connection()
+    db = get_firestore_db()
 
     data = request.get_json()
     reason = data.get('reason')
     description = data.get('description', '')
-    images = json.dumps(data.get('images', []))
+    images = data.get('images', [])
 
     # Get order details
-    order = conn.execute("""
-        SELECT * FROM transactions
-        WHERE id = ? AND user_id = ?
-    """, (order_id, user['id'])).fetchone()
+    order = transaction_service.get(order_id)
 
-    if not order:
+    if not order or order.get('user_id') != user['id']:
         return jsonify({'success': False, 'error': 'Order not found'}), 404
 
-    if order['status'] != 'DELIVERED':
+    if order.get('status') != 'DELIVERED':
         return jsonify({'success': False, 'error': 'Can only return delivered orders'}), 400
 
     # Create return request
-    conn.execute("""
-        INSERT INTO return_requests
-        (transaction_id, user_id, seller_id, reason, description, images)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (order_id, user['id'], order['seller_id'], reason, description, images))
-    conn.commit()
+    return_data = {
+        'transaction_id': order_id,
+        'user_id': user['id'],
+        'seller_id': order.get('seller_id'),
+        'reason': reason,
+        'description': description,
+        'images': images,
+        'status': 'PENDING',
+        'created_at': firestore.SERVER_TIMESTAMP
+    }
 
-    # Send notifications
-    send_notification(
-        order['seller_id'],
-        'Return Request',
-        f'Customer requested return for order #{order_id}',
-        'order',
-        order_id
-    )
+    db.collection('return_requests').add(return_data)
 
-    conn.close()
+    # Send notification to seller
+    if order.get('seller_id'):
+        seller = seller_service.get(order['seller_id'])
+        if seller and seller.get('user_id'):
+            send_notification(
+                seller['user_id'],
+                'Return Request',
+                f'Customer requested return for order #{order_id}',
+                'order',
+                order_id
+            )
+
     return jsonify({'success': True, 'message': 'Return request submitted'})
+
 
 def download_order_csv(order_id):
     """Download order receipt as CSV"""
     user = session.get('user')
-    conn = get_db_connection()
+    product_service = get_product_service()
 
     # Get order details
-    order = conn.execute("""
-        SELECT t.*, s.name as seller_name
-        FROM transactions t
-        LEFT JOIN sellers s ON t.seller_id = s.id
-        WHERE t.id = ? AND t.user_id = ?
-    """, (order_id, user['id'])).fetchone()
+    order = transaction_service.get(order_id)
 
-    if not order:
+    if not order or order.get('user_id') != user['id']:
         return jsonify({'error': 'Order not found'}), 404
 
-    # Get order items
-    items = conn.execute("""
-        SELECT ti.*, p.name as product_name
-        FROM transaction_items ti
-        JOIN products p ON ti.product_id = p.id
-        WHERE ti.transaction_id = ?
-    """, (order_id,)).fetchall()
+    # Get seller name
+    seller_name = ''
+    if order.get('seller_id'):
+        seller = seller_service.get(order['seller_id'])
+        if seller:
+            seller_name = seller.get('name', '')
+
+    # Get order items with product names
+    items = []
+    for item in order.get('items', []):
+        item_data = dict(item)
+        if item.get('product_id'):
+            product = product_service.get(item['product_id'])
+            if product:
+                item_data['product_name'] = product.get('name', '')
+        items.append(item_data)
 
     # Create CSV in memory
     output = io.StringIO()
@@ -275,26 +315,26 @@ def download_order_csv(order_id):
     # Write header
     writer.writerow(['SparzaFI Order Receipt'])
     writer.writerow(['Order ID', order_id])
-    writer.writerow(['Date', order['timestamp']])
-    writer.writerow(['Seller', order['seller_name']])
-    writer.writerow(['Status', order['status']])
+    writer.writerow(['Date', order.get('timestamp', '')])
+    writer.writerow(['Seller', seller_name])
+    writer.writerow(['Status', order.get('status', '')])
     writer.writerow([])
 
     # Write items
     writer.writerow(['Product', 'Quantity', 'Unit Price', 'Total'])
     for item in items:
         writer.writerow([
-            item['product_name'],
-            item['quantity'],
-            f"R{item['unit_price']:.2f}",
-            f"R{item['total_price']:.2f}"
+            item.get('product_name', ''),
+            item.get('quantity', 0),
+            f"R{item.get('unit_price', 0):.2f}",
+            f"R{item.get('total_price', 0):.2f}"
         ])
 
     writer.writerow([])
-    writer.writerow(['Subtotal', f"R{order['seller_amount']:.2f}"])
-    writer.writerow(['Delivery Fee', f"R{order['deliverer_fee']:.2f}"])
-    writer.writerow(['Tax', f"R{order['tax_amount']:.2f}"])
-    writer.writerow(['Total', f"R{order['total_amount']:.2f}"])
+    writer.writerow(['Subtotal', f"R{order.get('seller_amount', 0):.2f}"])
+    writer.writerow(['Delivery Fee', f"R{order.get('deliverer_fee', 0):.2f}"])
+    writer.writerow(['Tax', f"R{order.get('tax_amount', 0):.2f}"])
+    writer.writerow(['Total', f"R{order.get('total_amount', 0):.2f}"])
 
     # Convert to bytes
     output.seek(0)
@@ -305,48 +345,51 @@ def download_order_csv(order_id):
         download_name=f'order_{order_id}_receipt.csv'
     )
 
+
 def purchase_history():
     """Full purchase history with pagination"""
     user = session.get('user')
-    conn = get_db_connection()
+    product_service = get_product_service()
 
     page = request.args.get('page', 1, type=int)
     per_page = 20
     offset = (page - 1) * per_page
 
-    # Get orders
-    orders = conn.execute("""
-        SELECT t.*, s.name as seller_name, s.handle as seller_handle,
-               COUNT(ti.id) as item_count
-        FROM transactions t
-        LEFT JOIN sellers s ON t.seller_id = s.id
-        LEFT JOIN transaction_items ti ON t.id = ti.transaction_id
-        WHERE t.user_id = ?
-        GROUP BY t.id
-        ORDER BY t.timestamp DESC
-        LIMIT ? OFFSET ?
-    """, (user['id'], per_page, offset)).fetchall()
+    # Get all user transactions
+    all_transactions = transaction_service.get_by_user(user['id'])
 
-    # Get total count
-    total = conn.execute("""
-        SELECT COUNT(*) as count FROM transactions WHERE user_id = ?
-    """, (user['id'],)).fetchone()['count']
+    # Add seller info and item count
+    for trans in all_transactions:
+        if trans.get('seller_id'):
+            seller = seller_service.get(trans['seller_id'])
+            if seller:
+                trans['seller_name'] = seller.get('name', '')
+                trans['seller_handle'] = seller.get('handle', '')
+
+        trans['item_count'] = len(trans.get('items', []))
+
+    # Sort by timestamp
+    all_transactions = sorted(all_transactions, key=lambda x: x.get('timestamp', ''), reverse=True)
+
+    # Paginate
+    total = len(all_transactions)
+    orders = all_transactions[offset:offset + per_page]
 
     history_data = {
-        'orders': [dict(o) for o in orders],
+        'orders': orders,
         'page': page,
         'per_page': per_page,
         'total': total,
         'total_pages': (total + per_page - 1) // per_page
     }
 
-    conn.close()
     return render_template('buyer/purchase_history.html', data=history_data)
+
 
 def manage_addresses():
     """Manage delivery addresses"""
     user = session.get('user')
-    conn = get_db_connection()
+    db = get_firestore_db()
 
     if request.method == 'POST':
         action = request.form.get('action')
@@ -362,32 +405,56 @@ def manage_addresses():
 
             # If setting as default, unset others
             if is_default:
-                conn.execute("UPDATE buyer_addresses SET is_default = 0 WHERE user_id = ?", (user['id'],))
+                addresses_ref = db.collection('buyer_addresses')
+                user_addresses = addresses_ref.where(filter=FieldFilter('user_id', '==', user['id'])).stream()
+                for doc in user_addresses:
+                    doc.reference.update({'is_default': False})
 
-            conn.execute("""
-                INSERT INTO buyer_addresses
-                (user_id, label, full_address, city, postal_code, phone_number, delivery_instructions, is_default)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (user['id'], label, full_address, city, postal_code, phone_number, delivery_instructions, is_default))
-            conn.commit()
+            address_data = {
+                'user_id': user['id'],
+                'label': label,
+                'full_address': full_address,
+                'city': city,
+                'postal_code': postal_code,
+                'phone_number': phone_number,
+                'delivery_instructions': delivery_instructions,
+                'is_default': is_default,
+                'created_at': firestore.SERVER_TIMESTAMP
+            }
+            db.collection('buyer_addresses').add(address_data)
 
         elif action == 'delete':
             address_id = request.form.get('address_id')
-            conn.execute("DELETE FROM buyer_addresses WHERE id = ? AND user_id = ?", (address_id, user['id']))
-            conn.commit()
+            address_ref = db.collection('buyer_addresses').document(address_id)
+            address = address_ref.get()
+            if address.exists and address.to_dict().get('user_id') == user['id']:
+                address_ref.delete()
 
         elif action == 'set_default':
             address_id = request.form.get('address_id')
-            conn.execute("UPDATE buyer_addresses SET is_default = 0 WHERE user_id = ?", (user['id'],))
-            conn.execute("UPDATE buyer_addresses SET is_default = 1 WHERE id = ? AND user_id = ?", (address_id, user['id']))
-            conn.commit()
+            # Unset all defaults
+            addresses_ref = db.collection('buyer_addresses')
+            user_addresses = addresses_ref.where(filter=FieldFilter('user_id', '==', user['id'])).stream()
+            for doc in user_addresses:
+                doc.reference.update({'is_default': False})
+
+            # Set new default
+            address_ref = db.collection('buyer_addresses').document(address_id)
+            address = address_ref.get()
+            if address.exists and address.to_dict().get('user_id') == user['id']:
+                address_ref.update({'is_default': True})
 
     # Get all addresses
-    addresses = conn.execute("""
-        SELECT * FROM buyer_addresses
-        WHERE user_id = ?
-        ORDER BY is_default DESC, created_at DESC
-    """, (user['id'],)).fetchall()
+    addresses_ref = db.collection('buyer_addresses')
+    addresses_query = addresses_ref.where(filter=FieldFilter('user_id', '==', user['id']))
 
-    conn.close()
-    return render_template('buyer/addresses.html', addresses=[dict(a) for a in addresses])
+    addresses = []
+    for doc in addresses_query.stream():
+        addr = doc.to_dict()
+        addr['id'] = doc.id
+        addresses.append(addr)
+
+    # Sort by default first, then by created_at
+    addresses = sorted(addresses, key=lambda x: (not x.get('is_default', False), x.get('created_at', '')), reverse=True)
+
+    return render_template('buyer/addresses.html', addresses=addresses)

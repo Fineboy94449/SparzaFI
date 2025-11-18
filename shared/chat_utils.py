@@ -5,7 +5,7 @@ Dashboard, delivery management, live tracking, earnings, and leaderboard
 
 from flask import render_template, request, redirect, url_for, session, flash, jsonify, current_app
 from . import deliverer_bp
-from database_seed import get_db_connection
+# from database_seed import get_db_connection  # TODO: Migrate to Firebase
 from shared.utils import login_required, generate_verification_code
 from datetime import datetime, timedelta
 import random
@@ -881,7 +881,7 @@ SparzaFi Order Chat Utilities
 Functions for managing order-based communication between buyers and deliverers
 """
 
-from database_seed import get_db_connection
+# from database_seed import get_db_connection  # TODO: Migrate to Firebase
 from datetime import datetime
 
 

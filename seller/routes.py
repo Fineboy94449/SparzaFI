@@ -1214,7 +1214,7 @@ def generate_pickup_code(order_id):
         return jsonify({'success': False, 'error': 'Order not found or access denied'}), 404
 
     # Import the utility function
-    from deliverer.utils import create_pickup_code
+    from deliverer.firebase_verification_codes import create_pickup_code
 
     result = create_pickup_code(order_id, user['id'])
 

@@ -816,7 +816,7 @@ def transactions_explorer():
 @login_required
 def order_chat(order_id):
     """Order chat page"""
-    from shared.chat_utils import can_user_access_chat, get_chat_messages, get_unread_count, mark_messages_as_read
+    from shared.firebase_chat_utils import can_user_access_chat, get_chat_messages, get_unread_count, mark_messages_as_read
     db = get_db()
     user_service = get_user_service()
     user = session.get('user')
@@ -894,7 +894,7 @@ def order_chat(order_id):
 @login_required
 def send_chat_message(order_id):
     """Send a chat message"""
-    from shared.chat_utils import send_chat_message as send_message, can_user_access_chat
+    from shared.firebase_chat_utils import send_chat_message as send_message, can_user_access_chat
     db = get_db()
     user = session.get('user')
 
@@ -947,7 +947,7 @@ def send_chat_message(order_id):
 @login_required
 def get_chat_messages_api(order_id):
     """API endpoint to get chat messages (for live updates)"""
-    from shared.chat_utils import can_user_access_chat, get_chat_messages
+    from shared.firebase_chat_utils import can_user_access_chat, get_chat_messages
     
     user = session.get('user')
     
@@ -976,7 +976,7 @@ def get_chat_messages_api(order_id):
 @login_required
 def flag_chat_message(order_id, message_id):
     """Flag a message for admin review"""
-    from shared.chat_utils import can_user_access_chat, flag_message
+    from shared.firebase_chat_utils import can_user_access_chat, flag_message
     
     user = session.get('user')
     
@@ -998,7 +998,7 @@ def flag_chat_message(order_id, message_id):
 @login_required
 def all_chats():
     """View all active chats for user"""
-    from shared.chat_utils import get_user_active_chats
+    from shared.firebase_chat_utils import get_user_active_chats
 
     user = session.get('user')
     chats = get_user_active_chats(user['id'])

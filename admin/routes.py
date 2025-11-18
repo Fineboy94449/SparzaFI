@@ -320,7 +320,7 @@ def cleanup_expired_codes():
     Admin endpoint to manually trigger cleanup of expired verification codes
     This should be run daily via cron job or scheduler
     """
-    from deliverer.utils import expire_old_verification_codes
+    from deliverer.firebase_verification_codes import expire_old_verification_codes
 
     result = expire_old_verification_codes()
 

@@ -39,7 +39,9 @@
       "Bash(python migrate_sparzafi_to_firebase.py:*)",
       "Bash(timeout 5 flask run:*)",
       "Bash(timeout:*)",
-      "Bash(python verify_migration.py:*)"
+      "Bash(python verify_migration.py:*)",
+      "Bash(.venv/bin/python:*)",
+      "Bash(FIREBASE_SERVICE_ACCOUNT=\"./firebase-service-account.json\" .venv/bin/python:*)"
     ],
     "deny": [],
     "ask": []

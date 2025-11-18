@@ -190,7 +190,7 @@ def transfer_tokens_api():
         return jsonify({'error': 'Cannot transfer to yourself'}), 400
 
     # Generate transaction reference
-    from database_seed import generate_reference_id
+    from shared.utils import generate_reference_id
     reference_id = generate_reference_id('TRF')
 
     try:
@@ -277,7 +277,7 @@ def deposit_tokens():
     user = user_service.get(request.user_id)
 
     # Generate transaction reference
-    from database_seed import generate_reference_id
+    from shared.utils import generate_reference_id
     reference_id = generate_reference_id('DEP')
 
     try:
@@ -377,7 +377,7 @@ def withdraw_tokens():
         request_id = withdrawal_ref[1].id
 
         # Record transaction
-        from database_seed import generate_reference_id
+        from shared.utils import generate_reference_id
         reference_id = generate_reference_id('WTH')
 
         db.collection('token_transactions').add({

@@ -3,7 +3,7 @@ SparzaFi Deliverer Utilities
 Helper functions for delivery management, route pricing, and settlement
 """
 
-from database_seed import get_db_connection
+# from database_seed import get_db_connection  # TODO: Migrate to Firebase
 from flask import current_app
 import random
 import hashlib
