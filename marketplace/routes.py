@@ -682,10 +682,13 @@ def transactions_explorer():
     if search_query and not is_admin and current_user:
         # Generate user's own identifier to validate against
         if user_type == 'buyer':
-            allowed_id = f"buyer{user_id:06d}"
+            try:
+                allowed_id = f"buyer{int(user_id.replace('user_', '')):06d}"
+            except:
+                allowed_id = f"buyer_{user_id}"
         elif user_type == 'seller':
             seller_record = seller_service.get_by_user_id(user_id)
-            allowed_id = f"seller{seller_record['id']:06d}" if seller_record else ""
+            allowed_id = f"seller_{seller_record['id']}" if seller_record else ""
         elif user_type == 'deliverer':
             # Get deliverer by user_id
             deliverer_docs = db.collection('deliverers').where(filter=FieldFilter('user_id', '==', user_id)).limit(1).stream()
@@ -693,7 +696,7 @@ def transactions_explorer():
             for doc in deliverer_docs:
                 deliverer_record = {**doc.to_dict(), 'id': doc.id}
                 break
-            allowed_id = f"deliverer{deliverer_record['id']:06d}" if deliverer_record else ""
+            allowed_id = f"deliverer_{deliverer_record['id']}" if deliverer_record else ""
         else:
             allowed_id = ""
 
@@ -710,14 +713,18 @@ def transactions_explorer():
     elif current_user:
         # Buyers see their own transactions
         if user_type == 'buyer':
-            trans_docs = db.collection('transactions').where(filter=FieldFilter('user_id', '==', user_id)).order_by('timestamp', direction=firestore.Query.DESCENDING).limit(50).stream()
+            trans_docs = db.collection('transactions').where(filter=FieldFilter('user_id', '==', user_id)).limit(50).stream()
             transactions = [{**doc.to_dict(), 'id': doc.id} for doc in trans_docs]
+            # Sort by timestamp in Python (avoids need for composite index)
+            transactions.sort(key=lambda x: x.get('timestamp') or '', reverse=True)
         # Sellers see transactions where they are the seller
         elif user_type == 'seller':
             seller_record = seller_service.get_by_user_id(user_id)
             if seller_record:
-                trans_docs = db.collection('transactions').where(filter=FieldFilter('seller_id', '==', seller_record['id'])).order_by('timestamp', direction=firestore.Query.DESCENDING).limit(50).stream()
+                trans_docs = db.collection('transactions').where(filter=FieldFilter('seller_id', '==', seller_record['id'])).limit(50).stream()
                 transactions = [{**doc.to_dict(), 'id': doc.id} for doc in trans_docs]
+                # Sort by timestamp in Python (avoids need for composite index)
+                transactions.sort(key=lambda x: x.get('timestamp') or '', reverse=True)
         # Deliverers see transactions where they are the deliverer
         elif user_type == 'deliverer':
             deliverer_docs = db.collection('deliverers').where(filter=FieldFilter('user_id', '==', user_id)).limit(1).stream()
@@ -726,8 +733,10 @@ def transactions_explorer():
                 deliverer_record = {**doc.to_dict(), 'id': doc.id}
                 break
             if deliverer_record:
-                trans_docs = db.collection('transactions').where(filter=FieldFilter('deliverer_id', '==', deliverer_record['id'])).order_by('timestamp', direction=firestore.Query.DESCENDING).limit(50).stream()
+                trans_docs = db.collection('transactions').where(filter=FieldFilter('deliverer_id', '==', deliverer_record['id'])).limit(50).stream()
                 transactions = [{**doc.to_dict(), 'id': doc.id} for doc in trans_docs]
+                # Sort by timestamp in Python (avoids need for composite index)
+                transactions.sort(key=lambda x: x.get('timestamp') or '', reverse=True)
 
     # Process transactions and add related data
     transactions_list = []

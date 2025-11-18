@@ -338,7 +338,7 @@ def confirm_order(order_id):
         return jsonify({'success': False, 'message': 'Error confirming order.'}), 500
 
 
-@seller_bp.route('/order/<int:order_id>/ready', methods=['POST'])
+@seller_bp.route('/order/<order_id>/ready', methods=['POST'])
 @login_required
 @seller_required
 def mark_ready_for_pickup(order_id):
@@ -384,7 +384,7 @@ def mark_ready_for_pickup(order_id):
     return jsonify({'success': False, 'message': 'Order not found or not confirmed yet.'}), 400
 
 
-@seller_bp.route('/order/<int:order_id>/cancel', methods=['POST'])
+@seller_bp.route('/order/<order_id>/cancel', methods=['POST'])
 @login_required
 @seller_required
 def cancel_order(order_id):
@@ -483,7 +483,7 @@ def upload_video():
         return jsonify({'success': False, 'message': 'Error uploading video.'}), 500
 
 
-@seller_bp.route('/videos/<int:video_id>/delete', methods=['POST'])
+@seller_bp.route('/videos/<video_id>/delete', methods=['POST'])
 @login_required
 @seller_required
 def delete_video(video_id):
@@ -650,7 +650,7 @@ def seller_messages():
 
 # ==================== PRODUCT MANAGEMENT: EDIT & DELETE ====================
 
-@seller_bp.route('/products/<int:product_id>/edit', methods=['GET', 'POST'])
+@seller_bp.route('/products/<product_id>/edit', methods=['GET', 'POST'])
 @login_required
 @seller_required
 def edit_product(product_id):
@@ -695,7 +695,7 @@ def edit_product(product_id):
 
     return render_template('seller_product_edit.html', product=dict(product))
 
-@seller_bp.route('/products/<int:product_id>/delete', methods=['POST'])
+@seller_bp.route('/products/<product_id>/delete', methods=['POST'])
 @login_required
 @seller_required
 def delete_product(product_id):
@@ -900,7 +900,7 @@ def update_stock():
 
 # ==================== CUSTOMER REVIEWS: RESPOND TO FEEDBACK ====================
 
-@seller_bp.route('/reviews/<int:review_id>/respond', methods=['POST'])
+@seller_bp.route('/reviews/<review_id>/respond', methods=['POST'])
 @login_required
 @seller_required
 def respond_to_review(review_id):
@@ -964,7 +964,7 @@ def invoices():
 
     return render_template('seller_invoices.html', invoices=[dict(i) for i in invoices])
 
-@seller_bp.route('/invoices/<int:transaction_id>/generate', methods=['GET'])
+@seller_bp.route('/invoices/<transaction_id>/generate', methods=['GET'])
 @login_required
 @seller_required
 def generate_invoice(transaction_id):
@@ -1006,7 +1006,7 @@ def generate_invoice(transaction_id):
 
     return invoice_html
 
-@seller_bp.route('/invoices/<int:transaction_id>/send', methods=['POST'])
+@seller_bp.route('/invoices/<transaction_id>/send', methods=['POST'])
 @login_required
 @seller_required
 def send_invoice(transaction_id):
@@ -1092,7 +1092,7 @@ def create_promotion():
 
     return render_template('seller_promotion_create.html')
 
-@seller_bp.route('/promotions/<int:promo_id>/toggle', methods=['POST'])
+@seller_bp.route('/promotions/<promo_id>/toggle', methods=['POST'])
 @login_required
 @seller_required
 def toggle_promotion(promo_id):
@@ -1193,7 +1193,7 @@ def detailed_analytics():
 
 # ==================== VERIFICATION CODE ENDPOINTS ====================
 
-@seller_bp.route('/api/generate-pickup-code/<int:order_id>', methods=['POST'])
+@seller_bp.route('/api/generate-pickup-code/<order_id>', methods=['POST'])
 @login_required
 @seller_required
 def generate_pickup_code(order_id):
@@ -1279,7 +1279,7 @@ def manage_returns():
                          active=active_returns,
                          completed=completed_returns)
 
-@seller_bp.route('/return/<int:return_id>/approve', methods=['POST'])
+@seller_bp.route('/return/<return_id>/approve', methods=['POST'])
 @login_required
 @seller_required
 def approve_return(return_id):
@@ -1320,7 +1320,7 @@ def approve_return(return_id):
     db.commit()
     return jsonify({'success': True, 'message': 'Return approved'})
 
-@seller_bp.route('/return/<int:return_id>/reject', methods=['POST'])
+@seller_bp.route('/return/<return_id>/reject', methods=['POST'])
 @login_required
 @seller_required
 def reject_return(return_id):
@@ -1361,7 +1361,7 @@ def reject_return(return_id):
     db.commit()
     return jsonify({'success': True, 'message': 'Return rejected'})
 
-@seller_bp.route('/order/<int:order_id>/download-slip')
+@seller_bp.route('/order/<order_id>/download-slip')
 @login_required
 @seller_required
 def download_order_slip(order_id):

@@ -57,7 +57,7 @@ def buyer_dashboard():
     product_service = get_product_service()
 
     # Get all transactions for user
-    user_transactions = transaction_service.get_by_user(user['id'])
+    user_transactions = transaction_service.get_user_transactions(user['id'])
 
     # Split into active and completed
     active_orders = []

@@ -38,38 +38,38 @@ class Config:
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@sparzafi.com')
     
     # Platform Settings
-    PLATFORM_NAME = "SparzaFi"
+    PLATFORM_NAME = os.environ.get('PLATFORM_NAME', "SparzaFi")
     PLATFORM_TAGLINE = "Community Marketplace & Fintech Ecosystem"
-    COMMISSION_RATE = 0.065  # 6.5%
-    DELIVERER_FEE_RATE = 0.10  # 10%
-    VAT_RATE = 0.15  # 15%
+    COMMISSION_RATE = float(os.environ.get('COMMISSION_RATE', 0.065))  # 6.5%
+    DELIVERER_FEE_RATE = float(os.environ.get('DELIVERER_FEE_RATE', 0.10))  # 10%
+    VAT_RATE = float(os.environ.get('VAT_RATE', 0.15))  # 15%
 
     # Delivery Route Pricing Limits
-    MIN_BASE_FEE = 5.0
-    MAX_BASE_FEE = 100.0
-    DEFAULT_BASE_FEE = 15.0
-    MIN_PRICE_PER_KM = 3.0
-    MAX_PRICE_PER_KM = 50.0
-    DEFAULT_PRICE_PER_KM = 8.0
-    DELIVERER_PLATFORM_FEE_RATE = 0.15  # 15% platform fee from deliverer earnings
+    MIN_BASE_FEE = float(os.environ.get('MIN_BASE_FEE', 5.0))
+    MAX_BASE_FEE = float(os.environ.get('MAX_BASE_FEE', 100.0))
+    DEFAULT_BASE_FEE = float(os.environ.get('DEFAULT_BASE_FEE', 15.0))
+    MIN_PRICE_PER_KM = float(os.environ.get('MIN_PRICE_PER_KM', 3.0))
+    MAX_PRICE_PER_KM = float(os.environ.get('MAX_PRICE_PER_KM', 50.0))
+    DEFAULT_PRICE_PER_KM = float(os.environ.get('DEFAULT_PRICE_PER_KM', 8.0))
+    DELIVERER_PLATFORM_FEE_RATE = float(os.environ.get('DELIVERER_PLATFORM_FEE_RATE', 0.15))  # 15% platform fee from deliverer earnings
     
     # Fintech Configuration
-    TOKEN_NAME = "Sparza Token"
-    TOKEN_SYMBOL = "SPZ"
-    INITIAL_TOKEN_BALANCE = 1500.0
-    SPZ_TO_RAND_RATE = 1.0  # 1 SPZ = R1.00
-    REFERRAL_BONUS_SPZ = 5.0
-    LOYALTY_POINTS_PER_RAND = 0.01  # 1 point per R1 spent
+    TOKEN_NAME = os.environ.get('TOKEN_NAME', "Sparza Token")
+    TOKEN_SYMBOL = os.environ.get('TOKEN_SYMBOL', "SPZ")
+    INITIAL_TOKEN_BALANCE = float(os.environ.get('INITIAL_TOKEN_BALANCE', 1500.0))
+    SPZ_TO_RAND_RATE = float(os.environ.get('SPZ_TO_RAND_RATE', 1.0))  # 1 SPZ = R1.00
+    REFERRAL_BONUS_SPZ = float(os.environ.get('REFERRAL_BONUS_SPZ', 5.0))
+    LOYALTY_POINTS_PER_RAND = float(os.environ.get('LOYALTY_POINTS_PER_RAND', 0.01))  # 1 point per R1 spent
     
     # File Upload
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max upload
+    MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 16 * 1024 * 1024))  # 16MB max upload
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'pdf'}
-    UPLOAD_FOLDER = 'static/uploads'
-    
+    UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'static/uploads')
+
     # Pagination
-    PRODUCTS_PER_PAGE = 20
-    TRANSACTIONS_PER_PAGE = 50
-    MESSAGES_PER_PAGE = 20
+    PRODUCTS_PER_PAGE = int(os.environ.get('PRODUCTS_PER_PAGE', 20))
+    TRANSACTIONS_PER_PAGE = int(os.environ.get('TRANSACTIONS_PER_PAGE', 50))
+    MESSAGES_PER_PAGE = int(os.environ.get('MESSAGES_PER_PAGE', 20))
 
     # Delivery Status Descriptions
     DELIVERY_STATUSES = {

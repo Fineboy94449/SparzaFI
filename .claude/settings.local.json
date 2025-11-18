@@ -42,7 +42,16 @@
       "Bash(python verify_migration.py:*)",
       "Bash(.venv/bin/python:*)",
       "Bash(FIREBASE_SERVICE_ACCOUNT=\"./firebase-service-account.json\" .venv/bin/python:*)",
-      "Bash(FIREBASE_SERVICE_ACCOUNT=\"./firebase-service-account.json\" CLEAR_DATA=no .venv/bin/python:*)"
+      "Bash(FIREBASE_SERVICE_ACCOUNT=\"./firebase-service-account.json\" CLEAR_DATA=no .venv/bin/python:*)",
+      "Bash(./run.sh)",
+      "Bash(for round in {2..5})",
+      "Bash(do echo \"\")",
+      "Bash(echo:*)",
+      "Bash(done)",
+      "Bash(export FIREBASE_SERVICE_ACCOUNT=\"./firebase-service-account.json\")",
+      "Bash(export CLEAR_DATA=no)",
+      "Bash(FIREBASE_SERVICE_ACCOUNT=\"./firebase-service-account.json\" timeout 10 .venv/bin/python:*)",
+      "Bash(FIREBASE_SERVICE_ACCOUNT=\"./firebase-service-account.json\" timeout 15 .venv/bin/python:*)"
     ],
     "deny": [],
     "ask": []

@@ -191,25 +191,33 @@ class ReviewService:
         """Get reviews for a product"""
         from google.cloud.firestore_v1.base_query import FieldFilter
         query = self.collection.where(filter=FieldFilter('product_id', '==', product_id))
-        query = query.order_by('created_at', direction=firestore.Query.DESCENDING)
-
-        if limit:
-            query = query.limit(limit)
+        # Note: Sorting in Python to avoid composite index requirement
+        # query = query.order_by('created_at', direction=firestore.Query.DESCENDING)
 
         docs = query.stream()
-        return [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+        reviews = [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+
+        # Sort in Python instead of Firestore to avoid needing composite index
+        reviews.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+
+        # Apply limit after sorting
+        return reviews[:limit] if limit else reviews
 
     def get_seller_reviews(self, seller_id, limit=50):
         """Get reviews for a seller"""
         from google.cloud.firestore_v1.base_query import FieldFilter
         query = self.collection.where(filter=FieldFilter('seller_id', '==', seller_id))
-        query = query.order_by('created_at', direction=firestore.Query.DESCENDING)
-
-        if limit:
-            query = query.limit(limit)
+        # Note: Sorting in Python to avoid composite index requirement
+        # query = query.order_by('created_at', direction=firestore.Query.DESCENDING)
 
         docs = query.stream()
-        return [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+        reviews = [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+
+        # Sort in Python instead of Firestore to avoid needing composite index
+        reviews.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+
+        # Apply limit after sorting
+        return reviews[:limit] if limit else reviews
 
 
 class TransactionService:
@@ -569,13 +577,17 @@ class MessageService:
         from google.cloud.firestore_v1.base_query import FieldFilter
 
         query = self.collection.where(filter=FieldFilter('conversation_id', '==', conversation_id))
-        query = query.order_by('created_at')
-
-        if limit:
-            query = query.limit(limit)
+        # Note: Sorting in Python to avoid composite index requirement
+        # query = query.order_by('created_at')
 
         docs = query.stream()
-        return [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+        messages = [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+
+        # Sort in Python instead of Firestore to avoid needing composite index
+        messages.sort(key=lambda x: x.get('created_at', ''))
+
+        # Apply limit after sorting
+        return messages[:limit] if limit else messages
 
     def mark_as_read(self, conversation_id, user_id):
         """Mark all messages in conversation as read for user"""
@@ -741,10 +753,12 @@ class VerificationSubmissionService:
         """Get all pending verification submissions"""
         from google.cloud.firestore_v1.base_query import FieldFilter
         query = self.collection.where(filter=FieldFilter('status', '==', 'pending'))
-        query = query.order_by('created_at')
 
         docs = query.stream()
-        return [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+        submissions = [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+        # Sort by created_at in Python (avoids need for composite index)
+        submissions.sort(key=lambda x: x.get('created_at') or '', reverse=False)
+        return submissions
 
     def update_status(self, submission_id, status, reviewed_by=None):
         """Update verification status"""
@@ -852,6 +866,86 @@ class AddressService:
         return True
 
 
+class NotificationService:
+    """Notification operations"""
+
+    def __init__(self):
+        self.db = get_firestore_db()
+        self.collection = self.db.collection('notifications')
+
+    def create(self, user_id, data, doc_id=None):
+        """Create a notification for a user"""
+        import uuid
+        if doc_id is None:
+            doc_id = str(uuid.uuid4())
+
+        data['user_id'] = user_id
+        data['is_read'] = data.get('is_read', False)
+        data['created_at'] = data.get('created_at', firestore.SERVER_TIMESTAMP)
+
+        self.collection.document(doc_id).set(data)
+        return doc_id
+
+    def create_notification(self, user_id, title, message, notification_type='general', data=None):
+        """Create a notification (simplified method)"""
+        notification_data = {
+            'user_id': user_id,
+            'title': title,
+            'message': message,
+            'notification_type': notification_type,
+            'is_read': False,
+            'created_at': firestore.SERVER_TIMESTAMP
+        }
+
+        if data:
+            notification_data['data'] = data
+
+        return self.create(user_id, notification_data)
+
+    def get_by_user(self, user_id, limit=50):
+        """Get notifications for a user"""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+
+        query = self.collection.where(filter=FieldFilter('user_id', '==', user_id))
+        # Sort in Python to avoid composite index requirement
+        docs = query.stream()
+        notifications = [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+
+        # Sort by created_at descending
+        notifications.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+
+        return notifications[:limit] if limit else notifications
+
+    def mark_as_read(self, notification_id):
+        """Mark a notification as read"""
+        self.collection.document(notification_id).update({
+            'is_read': True,
+            'read_at': firestore.SERVER_TIMESTAMP
+        })
+        return True
+
+    def mark_all_read(self, user_id):
+        """Mark all notifications as read for a user"""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+
+        query = self.collection.where(filter=FieldFilter('user_id', '==', user_id))
+        query = query.where(filter=FieldFilter('is_read', '==', False))
+
+        docs = query.stream()
+        for doc in docs:
+            doc.reference.update({
+                'is_read': True,
+                'read_at': firestore.SERVER_TIMESTAMP
+            })
+
+        return True
+
+    def delete(self, notification_id):
+        """Delete a notification"""
+        self.collection.document(notification_id).delete()
+        return True
+
+
 # Create service instances
 seller_service = SellerService()
 review_service = ReviewService()
@@ -868,6 +962,7 @@ delivery_route_service = DeliveryRouteService()
 verification_submission_service = VerificationSubmissionService()
 seller_badge_service = SellerBadgeService()
 address_service = AddressService()
+notification_service = NotificationService()
 
 
 # Export all services

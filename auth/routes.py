@@ -78,7 +78,7 @@ def login():
         # --- New User Registration ---
         try:
             hashed_password = hash_password(password)
-            user_referral_code = generate_referral_code(email)
+            user_referral_code = generate_referral_code()
             referred_by_id = None
 
             # Get Firebase user service
@@ -137,6 +137,10 @@ def login():
             return render_template('auth.html', success="Account created. Check your email for verification link.")
 
         except Exception as e:
+            # Log the full traceback for debugging
+            import traceback
+            app.logger.error(f"Signup error: {traceback.format_exc()}")
+
             # Check if it's a duplicate email error
             if "already exists" in str(e).lower():
                 return render_template('auth.html', error="A user with that email already exists.")
@@ -294,7 +298,7 @@ def google_callback():
 
         else:
             # New user - create account
-            user_referral_code = generate_referral_code(email)
+            user_referral_code = generate_referral_code()
 
             new_user_id = str(uuid.uuid4())
             user_data = {

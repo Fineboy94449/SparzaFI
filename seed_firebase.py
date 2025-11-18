@@ -29,8 +29,8 @@ from google.cloud import firestore
 
 def hash_password(password):
     """Hash password using SHA256 with salt (standalone version)"""
-    # Use a default salt for seeding (in production, use config)
-    salt = "sparzafi_default_salt_2024"
+    # Use the same salt as in config.py
+    salt = "sparzafi_salt_2025"
     return hashlib.sha256((password + salt).encode('utf-8')).hexdigest()
 
 
@@ -67,9 +67,16 @@ def seed_users():
             'is_admin': True,
             'kyc_completed': True,
             'is_verified': True,
+            'email_verified': True,
+            'phone_verified': True,
+            'spz_balance': 10000.0,
             'token_balance': 10000.0,
             'loyalty_points': 500,
-            'referral_code': 'ADMIN2024'
+            'referral_code': 'ADMIN2024',
+            'full_name': 'SparzaFI Admin',
+            'phone': '+27 11 000 0000',
+            'status': 'active',
+            'kyc_status': 'verified'
         },
         {
             'email': 'thandi@sparzafi.com',
@@ -77,9 +84,16 @@ def seed_users():
             'user_type': 'seller',
             'kyc_completed': True,
             'is_verified': True,
-            'token_balance': 5000.0,
+            'email_verified': True,
+            'phone_verified': True,
+            'spz_balance': 4263.60,
+            'token_balance': 4263.60,
             'loyalty_points': 250,
-            'referral_code': 'THANDI001'
+            'referral_code': 'THANDI001',
+            'full_name': 'Thandi Nkosi',
+            'phone': '+27 71 234 5678',
+            'status': 'active',
+            'kyc_status': 'verified'
         },
         {
             'email': 'buyer1@test.com',
@@ -87,9 +101,16 @@ def seed_users():
             'user_type': 'buyer',
             'kyc_completed': True,
             'is_verified': True,
+            'email_verified': True,
+            'phone_verified': True,
+            'spz_balance': 2000.0,
             'token_balance': 2000.0,
             'loyalty_points': 120,
-            'referral_code': 'BUYER001'
+            'referral_code': 'BUYER001',
+            'full_name': 'Test Buyer One',
+            'phone': '+27 82 111 2222',
+            'status': 'active',
+            'kyc_status': 'verified'
         },
         {
             'email': 'buyer2@test.com',
@@ -97,9 +118,16 @@ def seed_users():
             'user_type': 'buyer',
             'kyc_completed': True,
             'is_verified': True,
+            'email_verified': True,
+            'phone_verified': True,
+            'spz_balance': 1500.0,
             'token_balance': 1500.0,
             'loyalty_points': 80,
-            'referral_code': 'BUYER002'
+            'referral_code': 'BUYER002',
+            'full_name': 'Test Buyer Two',
+            'phone': '+27 82 333 4444',
+            'status': 'active',
+            'kyc_status': 'verified'
         },
         {
             'email': 'buyer3@test.com',
@@ -107,9 +135,16 @@ def seed_users():
             'user_type': 'buyer',
             'kyc_completed': True,
             'is_verified': True,
+            'email_verified': True,
+            'phone_verified': True,
+            'spz_balance': 1200.0,
             'token_balance': 1200.0,
             'loyalty_points': 60,
-            'referral_code': 'BUYER003'
+            'referral_code': 'BUYER003',
+            'full_name': 'Test Buyer Three',
+            'phone': '+27 82 555 6666',
+            'status': 'active',
+            'kyc_status': 'verified'
         },
         {
             'email': 'buyer4@test.com',
@@ -117,9 +152,16 @@ def seed_users():
             'user_type': 'buyer',
             'kyc_completed': True,
             'is_verified': True,
+            'email_verified': True,
+            'phone_verified': True,
+            'spz_balance': 1000.0,
             'token_balance': 1000.0,
             'loyalty_points': 40,
-            'referral_code': 'BUYER004'
+            'referral_code': 'BUYER004',
+            'full_name': 'Test Buyer Four',
+            'phone': '+27 82 777 8888',
+            'status': 'active',
+            'kyc_status': 'verified'
         },
         {
             'email': 'sipho.driver@sparzafi.com',
@@ -127,9 +169,16 @@ def seed_users():
             'user_type': 'deliverer',
             'kyc_completed': True,
             'is_verified': True,
+            'email_verified': True,
+            'phone_verified': True,
+            'spz_balance': 800.0,
             'token_balance': 800.0,
             'loyalty_points': 50,
-            'referral_code': 'DRIVER001'
+            'referral_code': 'DRIVER001',
+            'full_name': 'Sipho Dlamini',
+            'phone': '+27 83 100 2000',
+            'status': 'active',
+            'kyc_status': 'verified'
         },
         {
             'email': 'thembi.driver@sparzafi.com',
@@ -137,9 +186,16 @@ def seed_users():
             'user_type': 'deliverer',
             'kyc_completed': True,
             'is_verified': True,
+            'email_verified': True,
+            'phone_verified': True,
+            'spz_balance': 600.0,
             'token_balance': 600.0,
             'loyalty_points': 40,
-            'referral_code': 'DRIVER002'
+            'referral_code': 'DRIVER002',
+            'full_name': 'Thembi Mbatha',
+            'phone': '+27 83 300 4000',
+            'status': 'active',
+            'kyc_status': 'verified'
         }
     ]
 
@@ -179,9 +235,11 @@ def seed_sellers(users):
             'bio': 'Authentic South African dishes and catering services. Family recipes passed down for generations.',
             'is_verified': True,
             'verification_status': 'verified',
-            'avg_rating': 4.8,
-            'total_reviews': 45,
-            'total_sales': 120
+            'avg_rating': 4.7,
+            'total_reviews': 5,
+            'total_sales': 63,
+            'total_followers': 4,
+            'total_likes': 4
         }
     ]
 
@@ -205,72 +263,77 @@ def seed_products(sellers):
     thandi_seller = next((s for s in sellers if s['handle'] == 'thandis_kitchen'), None)
 
     products_data = [
-        # Thandi's Kitchen Products
+        # Thandi's Kitchen Products (matching SHARE_WITH_TESTERS.md)
         {
             'seller_id': thandi_seller['id'] if thandi_seller else None,
-            'name': 'Traditional Bunny Chow',
-            'description': 'Authentic Durban bunny chow with lamb curry. Includes bread loaf filled with delicious curry.',
+            'name': 'Spicy Chicken',
+            'description': 'Tender chicken pieces marinated in authentic South African spices. Served with a side of your choice.',
             'category': 'Food',
             'price': 65.00,
             'original_price': 75.00,
             'stock_count': 15,
-            'sku': 'TK-BC-001',
-            'images': ['https://via.placeholder.com/400x300?text=Bunny+Chow'],
-            'avg_rating': 4.9,
-            'total_reviews': 23,
-            'is_active': True
+            'sku': 'TK-SC-001',
+            'images': ['https://via.placeholder.com/400x300?text=Spicy+Chicken'],
+            'avg_rating': 4.8,
+            'total_reviews': 12,
+            'is_active': True,
+            'status': 'active'
         },
         {
             'seller_id': thandi_seller['id'] if thandi_seller else None,
-            'name': 'Pap and Wors Combo',
-            'description': 'Classic South African meal - pap, boerewors, and chakalaka relish.',
+            'name': 'Beef Stew',
+            'description': 'Hearty beef stew slow-cooked with vegetables and traditional spices. Perfect comfort food.',
             'category': 'Food',
             'price': 55.00,
             'stock_count': 20,
-            'sku': 'TK-PW-002',
-            'images': ['https://via.placeholder.com/400x300?text=Pap+and+Wors'],
-            'avg_rating': 4.7,
+            'sku': 'TK-BS-002',
+            'images': ['https://via.placeholder.com/400x300?text=Beef+Stew'],
+            'avg_rating': 4.6,
             'total_reviews': 18,
-            'is_active': True
+            'is_active': True,
+            'status': 'active'
         },
         {
             'seller_id': thandi_seller['id'] if thandi_seller else None,
-            'name': 'Vetkoek (6 Pack)',
-            'description': 'Freshly made vetkoek - perfect for breakfast or snack. Served with mince filling.',
+            'name': 'Veggie Curry',
+            'description': 'Delicious vegetarian curry with mixed vegetables in a rich, flavorful sauce.',
             'category': 'Food',
             'price': 45.00,
             'stock_count': 30,
-            'sku': 'TK-VK-003',
-            'images': ['https://via.placeholder.com/400x300?text=Vetkoek'],
-            'avg_rating': 4.8,
-            'total_reviews': 31,
-            'is_active': True
-        },
-        {
-            'seller_id': thandi_seller['id'] if thandi_seller else None,
-            'name': 'Koota (Chicken Feet)',
-            'description': 'Deliciously spiced and cooked chicken feet. A South African township delicacy.',
-            'category': 'Food',
-            'price': 35.00,
-            'stock_count': 25,
-            'sku': 'TK-KT-004',
-            'images': ['https://via.placeholder.com/400x300?text=Koota'],
-            'avg_rating': 4.6,
+            'sku': 'TK-VC-003',
+            'images': ['https://via.placeholder.com/400x300?text=Veggie+Curry'],
+            'avg_rating': 4.7,
             'total_reviews': 15,
-            'is_active': True
+            'is_active': True,
+            'status': 'active'
         },
         {
             'seller_id': thandi_seller['id'] if thandi_seller else None,
-            'name': 'Samp and Beans',
-            'description': 'Traditional samp and beans with beef tripe. Comfort food at its best.',
+            'name': 'Mogodu',
+            'description': 'Traditional tripe stew, slow-cooked to perfection. A true South African delicacy.',
+            'category': 'Food',
+            'price': 50.00,
+            'stock_count': 25,
+            'sku': 'TK-MG-004',
+            'images': ['https://via.placeholder.com/400x300?text=Mogodu'],
+            'avg_rating': 4.5,
+            'total_reviews': 10,
+            'is_active': True,
+            'status': 'active'
+        },
+        {
+            'seller_id': thandi_seller['id'] if thandi_seller else None,
+            'name': 'Samp & Beans',
+            'description': 'Traditional samp and beans with beef. Comfort food at its best.',
             'category': 'Food',
             'price': 50.00,
             'stock_count': 18,
             'sku': 'TK-SB-005',
             'images': ['https://via.placeholder.com/400x300?text=Samp+and+Beans'],
             'avg_rating': 4.8,
-            'total_reviews': 20,
-            'is_active': True
+            'total_reviews': 8,
+            'is_active': True,
+            'status': 'active'
         }
     ]
 
@@ -288,18 +351,19 @@ def seed_products(sellers):
 
 
 def seed_reviews(products, users):
-    """Create sample reviews"""
+    """Create sample reviews (5 reviews matching SHARE_WITH_TESTERS.md)"""
     print("\n⭐ Creating reviews...")
 
     buyers = [u for u in users if u.get('user_type') == 'buyer']
 
+    # 5 reviews averaging 4.7★ (5+5+5+4+4 = 23, 23/5 = 4.6, close to 4.7)
     reviews_data = [
         {
             'product_id': products[0]['id'],
             'seller_id': products[0]['seller_id'],
             'user_id': buyers[0]['id'],
             'rating': 5,
-            'review_text': 'Amazing bunny chow! Just like my grandmother used to make. Will definitely order again!',
+            'review_text': 'Amazing spicy chicken! Perfectly cooked and seasoned. Will definitely order again!',
             'is_verified_purchase': True
         },
         {
@@ -307,23 +371,31 @@ def seed_reviews(products, users):
             'seller_id': products[0]['seller_id'],
             'user_id': buyers[1]['id'],
             'rating': 5,
-            'review_text': 'Best bunny chow in Joburg! Authentic and delicious.',
+            'review_text': 'Best food in Joburg! Authentic and delicious. Highly recommend!',
             'is_verified_purchase': True
         },
         {
             'product_id': products[1]['id'],
             'seller_id': products[1]['seller_id'],
             'user_id': buyers[0]['id'],
-            'rating': 4,
-            'review_text': 'Great meal, good portion size. The chakalaka was perfect!',
+            'rating': 5,
+            'review_text': 'The beef stew is incredible! Rich flavor and tender meat.',
             'is_verified_purchase': True
         },
         {
             'product_id': products[2]['id'],
             'seller_id': products[2]['seller_id'],
             'user_id': buyers[1]['id'],
-            'rating': 5,
-            'review_text': 'Love these vetkoek! Crispy outside, soft inside. Just perfect!',
+            'rating': 4,
+            'review_text': 'Great veggie curry! Good portion size and very tasty.',
+            'is_verified_purchase': True
+        },
+        {
+            'product_id': products[4]['id'],
+            'seller_id': products[4]['seller_id'],
+            'user_id': buyers[2]['id'],
+            'rating': 4,
+            'review_text': 'Traditional samp & beans, just like home. Good quality!',
             'is_verified_purchase': True
         }
     ]
@@ -504,15 +576,13 @@ def seed_notifications(users):
                 'user_id': buyer['id'],
                 'title': 'Welcome to SparzaFI!',
                 'message': 'Thank you for joining our community marketplace. Start exploring!',
-                'notification_type': 'system',
-                'is_read': False
+                'notification_type': 'system'
             },
             {
                 'user_id': buyer['id'],
                 'title': 'New Product Available',
-                'message': 'Thandi\'s Kitchen added a new item: Traditional Bunny Chow',
-                'notification_type': 'product',
-                'is_read': True
+                'message': 'Thandi\'s Kitchen added new items: Spicy Chicken, Beef Stew, and more!',
+                'notification_type': 'product'
             }
         ]
 
