@@ -4,9 +4,15 @@ import secrets
 import jwt
 import uuid
 from datetime import datetime, timedelta
+import os
 
 # Firebase imports
 from firebase_db import get_user_service
+
+# Google OAuth imports
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from google_auth_oauthlib.flow import Flow
 
 # Shared utilities (will be migrated to Firebase)
 from shared.utils import (
@@ -15,6 +21,11 @@ from shared.utils import (
 )
 
 auth_bp = Blueprint('auth', __name__, template_folder='templates')
+
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
+GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 @auth_bp.route('/signup', methods=['GET', 'POST'])
@@ -170,6 +181,157 @@ def verify_email(token):
 def logout():
     session.clear()
     return redirect(url_for('marketplace.feed'))
+
+# --- Google OAuth Login ---
+@auth_bp.route('/auth/google')
+def google_login():
+    """Initiate Google OAuth flow"""
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        return render_template('auth.html',
+            error="Google login is not configured. Please contact the administrator.")
+
+    # Create OAuth flow
+    flow = Flow.from_client_config(
+        {
+            "web": {
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "redirect_uris": [url_for('auth.google_callback', _external=True)]
+            }
+        },
+        scopes=['openid', 'email', 'profile']
+    )
+
+    flow.redirect_uri = url_for('auth.google_callback', _external=True)
+
+    authorization_url, state = flow.authorization_url(
+        access_type='offline',
+        include_granted_scopes='true'
+    )
+
+    # Store state in session for CSRF protection
+    session['oauth_state'] = state
+
+    return redirect(authorization_url)
+
+@auth_bp.route('/auth/google/callback')
+def google_callback():
+    """Handle Google OAuth callback"""
+    try:
+        # Verify state for CSRF protection
+        if request.args.get('state') != session.get('oauth_state'):
+            return render_template('auth.html',
+                error="Invalid OAuth state. Please try again.")
+
+        # Create flow instance
+        flow = Flow.from_client_config(
+            {
+                "web": {
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "redirect_uris": [url_for('auth.google_callback', _external=True)]
+                }
+            },
+            scopes=['openid', 'email', 'profile']
+        )
+
+        flow.redirect_uri = url_for('auth.google_callback', _external=True)
+
+        # Exchange authorization code for tokens
+        flow.fetch_token(authorization_response=request.url)
+
+        # Get user info from ID token
+        credentials = flow.credentials
+        id_info = id_token.verify_oauth2_token(
+            credentials.id_token,
+            google_requests.Request(),
+            GOOGLE_CLIENT_ID
+        )
+
+        # Extract user information
+        google_id = id_info.get('sub')
+        email = id_info.get('email')
+        name = id_info.get('name', '')
+        picture = id_info.get('picture', '')
+        email_verified = id_info.get('email_verified', False)
+
+        if not email:
+            return render_template('auth.html',
+                error="Could not retrieve email from Google. Please try again.")
+
+        # Get or create user
+        user_service = get_user_service()
+        user = user_service.get_by_email(email)
+
+        if user:
+            # Existing user - log them in
+            # Update Google info if not already set
+            if not user.get('google_id'):
+                user_service.update(user['id'], {
+                    'google_id': google_id,
+                    'profile_picture': picture,
+                    'email_verified': True  # Google already verified
+                })
+                user['google_id'] = google_id
+                user['profile_picture'] = picture
+
+            session['user'] = user
+            session.permanent = True
+
+            # Redirect based on user type
+            if user.get('user_type') == 'admin':
+                return redirect(url_for('admin.admin_dashboard_enhanced'))
+            elif user.get('user_type') == 'seller':
+                return redirect(url_for('seller.seller_dashboard'))
+            elif user.get('user_type') == 'deliverer':
+                return redirect(url_for('deliverer.dashboard'))
+            else:
+                return redirect(url_for('marketplace.feed'))
+
+        else:
+            # New user - create account
+            user_referral_code = generate_referral_code(email)
+
+            new_user_id = str(uuid.uuid4())
+            user_data = {
+                'email': email,
+                'google_id': google_id,
+                'full_name': name,
+                'profile_picture': picture,
+                'password_hash': '',  # No password for Google auth users
+                'user_type': 'buyer',  # Default to buyer
+                'referral_code': user_referral_code,
+                'referred_by': None,
+                'spz_balance': app.config.get('INITIAL_TOKEN_BALANCE', 100),
+                'email_verified': True,  # Google already verified email
+                'phone_verified': False,
+                'verification_token': None,
+                'phone': '',
+                'status': 'active',
+                'kyc_status': 'pending',
+                'token_balance': 0.0,
+                'is_admin': False
+            }
+
+            user_service.create(user_data, doc_id=new_user_id)
+
+            # Add id to user_data for session
+            user_data['id'] = new_user_id
+
+            # Log in the new user
+            session['user'] = user_data
+            session.permanent = True
+
+            return redirect(url_for('marketplace.feed'))
+
+    except Exception as e:
+        app.logger.error(f"Google OAuth error: {e}")
+        return render_template('auth.html',
+            error=f"Google login failed: {str(e)}")
 
 # --- JWT API (21) ---
 @auth_bp.route('/api/jwt/token', methods=['POST'])

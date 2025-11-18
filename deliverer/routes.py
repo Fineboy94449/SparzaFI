@@ -1,14 +1,26 @@
 """
-SparzaFi Deliverer Routes
+SparzaFi Deliverer Routes - Migrated to Firebase
 Dashboard, delivery management, live tracking, earnings, and leaderboard
 """
 
 from flask import render_template, request, redirect, url_for, session, flash, jsonify, current_app
 from . import deliverer_bp
-from database_seed import get_db_connection
 from shared.utils import login_required, generate_verification_code
 from datetime import datetime, timedelta
 import random
+
+# Firebase imports
+from firebase_db import (
+    deliverer_service,
+    delivery_route_service,
+    get_user_service,
+    transaction_service,
+    delivery_tracking_service,
+    seller_service,
+    get_notification_service
+)
+from google.cloud.firestore_v1.base_query import FieldFilter
+from google.cloud import firestore
 
 
 def deliverer_required(f):
@@ -29,51 +41,48 @@ def deliverer_required(f):
 def setup():
     """Deliverer profile setup - Basic info only"""
     user = session.get('user')
-    conn = get_db_connection()
-    
+    user_service = get_user_service()
+
     # Check if already a deliverer
-    existing = conn.execute(
-        'SELECT id FROM deliverers WHERE user_id = ?',
-        (user['id'],)
-    ).fetchone()
-    
+    existing = deliverer_service.get_by_user_id(user['id'])
+
     if existing:
         flash('You are already registered as a deliverer!', 'info')
         return redirect(url_for('deliverer.dashboard'))
-    
+
     if request.method == 'POST':
         license_number = request.form.get('license_number', '').strip()
         vehicle_type = request.form.get('vehicle_type', 'walking')
         vehicle_registration = request.form.get('vehicle_registration', '').strip()
 
         try:
-            conn.execute("""
-                INSERT INTO deliverers
-                (user_id, license_number, vehicle_type, vehicle_registration,
-                 is_verified, is_active, is_available)
-                VALUES (?, ?, ?, ?, 0, 1, 1)
-            """, (user['id'], license_number, vehicle_type, vehicle_registration))
-            
+            # Create deliverer profile
+            deliverer_service.create({
+                'user_id': user['id'],
+                'license_number': license_number,
+                'vehicle_type': vehicle_type,
+                'vehicle_registration': vehicle_registration,
+                'is_verified': False,
+                'is_active': True,
+                'is_available': True,
+                'rating': 0.0,
+                'total_deliveries': 0
+            })
+
             # Update user type
-            conn.execute("""
-                UPDATE users
-                SET user_type = 'deliverer', updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            """, (user['id'],))
-            
-            conn.commit()
-            
+            user_service.update(user['id'], {'user_type': 'deliverer'})
+
             # Update session
-            updated_user = conn.execute('SELECT * FROM users WHERE id = ?', (user['id'],)).fetchone()
-            session['user'] = dict(updated_user)
-            
+            updated_user = user_service.get(user['id'])
+            session['user'] = updated_user
+
             flash('Deliverer profile created! Now add your delivery routes.', 'success')
             return redirect(url_for('deliverer.manage_routes'))
-            
+
         except Exception as e:
-            conn.rollback()
+            flash(f'Setup failed: {str(e)}', 'error')
             return render_template('deliverer/setup.html', error=f"Setup failed: {str(e)}")
-    
+
     return render_template('deliverer/setup.html')
 
 
@@ -84,22 +93,17 @@ def setup():
 def manage_routes():
     """Manage delivery routes"""
     user = session.get('user')
-    conn = get_db_connection()
-    
-    deliverer = conn.execute('SELECT * FROM deliverers WHERE user_id = ?', (user['id'],)).fetchone()
+
+    deliverer = deliverer_service.get_by_user_id(user['id'])
     if not deliverer:
         return redirect(url_for('deliverer.setup'))
-    
+
     # Get all routes for this deliverer
-    routes = conn.execute("""
-        SELECT * FROM delivery_routes
-        WHERE deliverer_id = ?
-        ORDER BY is_active DESC, created_at DESC
-    """, (deliverer['id'],)).fetchall()
-    
+    routes = delivery_route_service.get_deliverer_routes(deliverer['id'])
+
     routes_data = {
-        'deliverer': dict(deliverer),
-        'routes': [dict(r) for r in routes],
+        'deliverer': deliverer,
+        'routes': routes,
         'min_price_per_km': current_app.config['MIN_PRICE_PER_KM'],
         'max_price_per_km': current_app.config['MAX_PRICE_PER_KM'],
         'min_base_fee': current_app.config['MIN_BASE_FEE'],
@@ -116,12 +120,11 @@ def manage_routes():
 def add_route():
     """Add a new delivery route"""
     user = session.get('user')
-    conn = get_db_connection()
-    
-    deliverer = conn.execute('SELECT id FROM deliverers WHERE user_id = ?', (user['id'],)).fetchone()
+
+    deliverer = deliverer_service.get_by_user_id(user['id'])
     if not deliverer:
         return jsonify({'success': False, 'error': 'Deliverer not found'}), 404
-    
+
     route_no = request.form.get('route_no', '').strip().upper()
     route_name = request.form.get('route_name', '').strip()
     service_area = request.form.get('service_area', '').strip()
@@ -135,129 +138,112 @@ def add_route():
 
     if not all([route_no, route_name, service_area]):
         errors.append("Route number, name, and service area are required")
-    
+
     if price_per_km < current_app.config['MIN_PRICE_PER_KM']:
         errors.append(f"Price per km must be at least R{current_app.config['MIN_PRICE_PER_KM']}")
-    
+
     if price_per_km > current_app.config['MAX_PRICE_PER_KM']:
         errors.append(f"Price per km cannot exceed R{current_app.config['MAX_PRICE_PER_KM']}")
-    
+
     if base_fee < current_app.config['MIN_BASE_FEE']:
         errors.append(f"Base fee must be at least R{current_app.config['MIN_BASE_FEE']}")
-    
+
     if base_fee > current_app.config['MAX_BASE_FEE']:
         errors.append(f"Base fee cannot exceed R{current_app.config['MAX_BASE_FEE']}")
-    
+
     if errors:
         flash('; '.join(errors), 'error')
         return redirect(url_for('deliverer.manage_routes'))
-    
-    try:
-        conn.execute("""
-            INSERT INTO delivery_routes
-            (deliverer_id, route_no, route_name, service_area, description,
-             base_fee, price_per_km, max_distance_km, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
-        """, (deliverer['id'], route_no, route_name, service_area, description,
-              base_fee, price_per_km, max_distance))
 
-        conn.commit()
+    try:
+        delivery_route_service.create({
+            'deliverer_id': deliverer['id'],
+            'route_no': route_no,
+            'route_name': route_name,
+            'service_area': service_area,
+            'description': description,
+            'base_fee': base_fee,
+            'price_per_km': price_per_km,
+            'max_distance_km': max_distance,
+            'is_active': True
+        })
 
         flash(f'Route {route_no} added successfully!', 'success')
-        
+
     except Exception as e:
-        conn.rollback()
         flash(f'Failed to add route: {str(e)}', 'error')
-    
+
     return redirect(url_for('deliverer.manage_routes'))
 
 
-@deliverer_bp.route('/routes/<int:route_id>/edit', methods=['POST'])
+@deliverer_bp.route('/routes/<route_id>/edit', methods=['POST'])
 @login_required
 @deliverer_required
 def edit_route(route_id):
     """Edit an existing route"""
     user = session.get('user')
-    conn = get_db_connection()
-    
-    deliverer = conn.execute('SELECT id FROM deliverers WHERE user_id = ?', (user['id'],)).fetchone()
+
+    deliverer = deliverer_service.get_by_user_id(user['id'])
     if not deliverer:
         return jsonify({'success': False, 'error': 'Deliverer not found'}), 404
-    
+
     # Verify route belongs to deliverer
-    route = conn.execute("""
-        SELECT * FROM delivery_routes
-        WHERE id = ? AND deliverer_id = ?
-    """, (route_id, deliverer['id'])).fetchone()
-    
-    if not route:
+    route = delivery_route_service.get(route_id)
+
+    if not route or route['deliverer_id'] != deliverer['id']:
         flash('Route not found', 'error')
         return redirect(url_for('deliverer.manage_routes'))
-    
+
     base_fee = float(request.form.get('base_fee', route['base_fee']))
     price_per_km = float(request.form.get('price_per_km', route['price_per_km']))
     max_distance = float(request.form.get('max_distance_km', route['max_distance_km']))
-    
+
     # Validation
     if price_per_km < current_app.config['MIN_PRICE_PER_KM'] or price_per_km > current_app.config['MAX_PRICE_PER_KM']:
         flash(f"Price per km must be between R{current_app.config['MIN_PRICE_PER_KM']} and R{current_app.config['MAX_PRICE_PER_KM']}", 'error')
         return redirect(url_for('deliverer.manage_routes'))
-    
+
     if base_fee < current_app.config['MIN_BASE_FEE'] or base_fee > current_app.config['MAX_BASE_FEE']:
         flash(f"Base fee must be between R{current_app.config['MIN_BASE_FEE']} and R{current_app.config['MAX_BASE_FEE']}", 'error')
         return redirect(url_for('deliverer.manage_routes'))
-    
+
     try:
-        conn.execute("""
-            UPDATE delivery_routes 
-            SET base_fee = ?,
-                price_per_km = ?,
-                max_distance_km = ?,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        """, (base_fee, price_per_km, max_distance, route_id))
-        
-        conn.commit()
+        delivery_route_service.update(route_id, {
+            'base_fee': base_fee,
+            'price_per_km': price_per_km,
+            'max_distance_km': max_distance
+        })
+
         flash('Route updated successfully!', 'success')
-        
+
     except Exception as e:
-        conn.rollback()
         flash(f'Failed to update route: {str(e)}', 'error')
-    
+
     return redirect(url_for('deliverer.manage_routes'))
 
 
-@deliverer_bp.route('/routes/<int:route_id>/toggle', methods=['POST'])
+@deliverer_bp.route('/routes/<route_id>/toggle', methods=['POST'])
 @login_required
 @deliverer_required
 def toggle_route(route_id):
     """Activate/deactivate a route"""
     user = session.get('user')
-    conn = get_db_connection()
-    
-    deliverer = conn.execute('SELECT id FROM deliverers WHERE user_id = ?', (user['id'],)).fetchone()
+
+    deliverer = deliverer_service.get_by_user_id(user['id'])
     if not deliverer:
         return jsonify({'success': False, 'error': 'Deliverer not found'}), 404
-    
-    route = conn.execute("""
-        SELECT * FROM delivery_routes
-        WHERE id = ? AND deliverer_id = ?
-    """, (route_id, deliverer['id'])).fetchone()
-    
-    if not route:
+
+    route = delivery_route_service.get(route_id)
+
+    if not route or route['deliverer_id'] != deliverer['id']:
         return jsonify({'success': False, 'error': 'Route not found'}), 404
-    
-    new_status = not route['is_active']
-    
-    conn.execute("""
-        UPDATE delivery_routes 
-        SET is_active = ?,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-    """, (new_status, route_id))
-    
-    conn.commit()
-    
+
+    new_status = not route.get('is_active', True)
+
+    delivery_route_service.update(route_id, {
+        'is_active': new_status
+    })
+
     status_text = 'activated' if new_status else 'deactivated'
     return jsonify({
         'success': True,
@@ -266,33 +252,36 @@ def toggle_route(route_id):
     })
 
 
-@deliverer_bp.route('/routes/<int:route_id>/delete', methods=['POST'])
+@deliverer_bp.route('/routes/<route_id>/delete', methods=['POST'])
 @login_required
 @deliverer_required
 def delete_route(route_id):
     """Delete a route"""
     user = session.get('user')
-    conn = get_db_connection()
-    
-    deliverer = conn.execute('SELECT id FROM deliverers WHERE user_id = ?', (user['id'],)).fetchone()
+
+    deliverer = deliverer_service.get_by_user_id(user['id'])
     if not deliverer:
         return jsonify({'success': False, 'error': 'Deliverer not found'}), 404
-    
+
     # Check if route has active deliveries
-    active_deliveries = conn.execute("""
-        SELECT COUNT(*) as count
-        FROM transactions
-        WHERE deliverer_id = ?
-        AND status IN ('PICKED_UP', 'IN_TRANSIT')
-    """, (deliverer['id'],)).fetchone()['count']
-    
-    if active_deliveries > 0:
+    # Get all transactions for this deliverer with active status
+    from firebase_config import get_firestore_db
+    db = get_firestore_db()
+
+    active_deliveries = db.collection('transactions').where(
+        filter=FieldFilter('deliverer_id', '==', deliverer['id'])
+    ).where(
+        filter=FieldFilter('status', 'in', ['PICKED_UP', 'IN_TRANSIT'])
+    ).stream()
+
+    active_count = sum(1 for _ in active_deliveries)
+
+    if active_count > 0:
         flash('Cannot delete route while you have active deliveries', 'error')
         return redirect(url_for('deliverer.manage_routes'))
-    
-    conn.execute('DELETE FROM delivery_routes WHERE id = ? AND deliverer_id = ?', (route_id, deliverer['id']))
-    conn.commit()
-    
+
+    delivery_route_service.delete(route_id)
+
     flash('Route deleted successfully', 'success')
     return redirect(url_for('deliverer.manage_routes'))
 
@@ -303,214 +292,232 @@ def delete_route(route_id):
 def dashboard():
     """Deliverer dashboard with routes"""
     user = session.get('user')
-    conn = get_db_connection()
+    user_service = get_user_service()
 
     # Get deliverer info
-    deliverer = conn.execute("""
-        SELECT d.*, u.email
-        FROM deliverers d
-        JOIN users u ON d.user_id = u.id
-        WHERE d.user_id = ?
-    """, (user['id'],)).fetchone()
-    
+    deliverer = deliverer_service.get_by_user_id(user['id'])
+
     if not deliverer:
         return redirect(url_for('deliverer.setup'))
-    
-    deliverer_dict = dict(deliverer)
-    
-    # Get deliverer's routes
-    routes = conn.execute("""
-        SELECT * FROM delivery_routes
-        WHERE deliverer_id = ? AND is_active = 1
-        ORDER BY created_at DESC
-    """, (deliverer['id'],)).fetchall()
-    
-    deliverer_dict['routes'] = [dict(r) for r in routes]
-    deliverer_dict['route_count'] = len(deliverer_dict['routes'])
-    
-    # Get available pickups (orders ready for collection)
-    available_pickups = conn.execute("""
-        SELECT t.*, 
-               s.name as seller_name, 
-               s.location as seller_location,
-               u.email as buyer_email,
-               u.address as buyer_address
-        FROM transactions t
-        JOIN sellers s ON t.seller_id = s.id
-        JOIN users u ON t.user_id = u.id
-        WHERE t.status = 'READY_FOR_PICKUP'
-        AND t.deliverer_id IS NULL
-        AND t.delivery_method = 'public_transport'
-        ORDER BY t.timestamp DESC
-    """).fetchall()
-    
-    deliverer_dict['available_pickups'] = [dict(p) for p in available_pickups]
-    
-    # Get active deliveries (assigned to this deliverer)
-    active_deliveries = conn.execute("""
-        SELECT t.*, 
-               s.name as seller_name, 
-               s.location as seller_location,
-               u.email as buyer_email,
-               u.address as buyer_address
-        FROM transactions t
-        JOIN sellers s ON t.seller_id = s.id
-        JOIN users u ON t.user_id = u.id
-        WHERE t.deliverer_id = ?
-        AND t.status IN ('PICKED_UP', 'IN_TRANSIT')
-        ORDER BY t.timestamp DESC
-    """, (deliverer['id'],)).fetchall()
-    
-    deliverer_dict['active_deliveries'] = [dict(d) for d in active_deliveries]
-    
-    # Get completed deliveries (last 10)
-    completed_deliveries = conn.execute("""
-        SELECT t.*, 
-               s.name as seller_name,
-               u.email as buyer_email
-        FROM transactions t
-        JOIN sellers s ON t.seller_id = s.id
-        JOIN users u ON t.user_id = u.id
-        WHERE t.deliverer_id = ?
-        AND t.status IN ('DELIVERED', 'COMPLETED')
-        ORDER BY t.delivered_at DESC
-        LIMIT 10
-    """, (deliverer['id'],)).fetchall()
-    
-    deliverer_dict['completed_deliveries'] = [dict(c) for c in completed_deliveries]
-    
-    # Calculate today's earnings
-    today_earnings = conn.execute("""
-        SELECT COALESCE(SUM(deliverer_fee), 0) as total
-        FROM transactions
-        WHERE deliverer_id = ?
-        AND DATE(delivered_at) = DATE('now')
-        AND status IN ('DELIVERED', 'COMPLETED')
-    """, (deliverer['id'],)).fetchone()['total']
 
-    deliverer_dict['today_earnings'] = today_earnings
+    # Get user email
+    user_data = user_service.get(user['id'])
+    deliverer['email'] = user_data.get('email', '')
+
+    # Get deliverer's routes
+    routes = delivery_route_service.get_active_routes(deliverer['id'])
+    deliverer['routes'] = routes
+    deliverer['route_count'] = len(routes)
+
+    # Get available pickups (orders ready for collection)
+    from firebase_config import get_firestore_db
+    db = get_firestore_db()
+
+    available_pickups_query = db.collection('transactions').where(
+        filter=FieldFilter('status', '==', 'READY_FOR_PICKUP')
+    ).where(
+        filter=FieldFilter('delivery_method', '==', 'public_transport')
+    ).stream()
+
+    available_pickups = []
+    for doc in available_pickups_query:
+        trans_data = {**doc.to_dict(), 'id': doc.id}
+        # Skip if already has deliverer
+        if trans_data.get('deliverer_id'):
+            continue
+
+        # Get seller and buyer info
+        if trans_data.get('seller_id'):
+            seller = seller_service.get(trans_data['seller_id'])
+            trans_data['seller_name'] = seller.get('name', '') if seller else ''
+            trans_data['seller_location'] = seller.get('location', '') if seller else ''
+
+        if trans_data.get('user_id'):
+            buyer = user_service.get(trans_data['user_id'])
+            trans_data['buyer_email'] = buyer.get('email', '') if buyer else ''
+            trans_data['buyer_address'] = buyer.get('address', '') if buyer else ''
+
+        available_pickups.append(trans_data)
+
+    deliverer['available_pickups'] = sorted(available_pickups, key=lambda x: x.get('created_at', ''), reverse=True)
+
+    # Get active deliveries (assigned to this deliverer)
+    active_deliveries_query = db.collection('transactions').where(
+        filter=FieldFilter('deliverer_id', '==', deliverer['id'])
+    ).where(
+        filter=FieldFilter('status', 'in', ['PICKED_UP', 'IN_TRANSIT'])
+    ).stream()
+
+    active_deliveries = []
+    for doc in active_deliveries_query:
+        trans_data = {**doc.to_dict(), 'id': doc.id}
+
+        # Get seller and buyer info
+        if trans_data.get('seller_id'):
+            seller = seller_service.get(trans_data['seller_id'])
+            trans_data['seller_name'] = seller.get('name', '') if seller else ''
+            trans_data['seller_location'] = seller.get('location', '') if seller else ''
+
+        if trans_data.get('user_id'):
+            buyer = user_service.get(trans_data['user_id'])
+            trans_data['buyer_email'] = buyer.get('email', '') if buyer else ''
+            trans_data['buyer_address'] = buyer.get('address', '') if buyer else ''
+
+        active_deliveries.append(trans_data)
+
+    deliverer['active_deliveries'] = sorted(active_deliveries, key=lambda x: x.get('created_at', ''), reverse=True)
+
+    # Get completed deliveries (last 10)
+    completed_deliveries_query = db.collection('transactions').where(
+        filter=FieldFilter('deliverer_id', '==', deliverer['id'])
+    ).where(
+        filter=FieldFilter('status', 'in', ['DELIVERED', 'COMPLETED'])
+    ).limit(10).stream()
+
+    completed_deliveries = []
+    for doc in completed_deliveries_query:
+        trans_data = {**doc.to_dict(), 'id': doc.id}
+
+        # Get seller and buyer info
+        if trans_data.get('seller_id'):
+            seller = seller_service.get(trans_data['seller_id'])
+            trans_data['seller_name'] = seller.get('name', '') if seller else ''
+
+        if trans_data.get('user_id'):
+            buyer = user_service.get(trans_data['user_id'])
+            trans_data['buyer_email'] = buyer.get('email', '') if buyer else ''
+
+        completed_deliveries.append(trans_data)
+
+    deliverer['completed_deliveries'] = sorted(completed_deliveries, key=lambda x: x.get('delivered_at', ''), reverse=True)
+
+    # Calculate today's earnings
+    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_earnings = 0.0
+
+    for trans in completed_deliveries:
+        delivered_at = trans.get('delivered_at')
+        if delivered_at and isinstance(delivered_at, str):
+            try:
+                delivered_date = datetime.fromisoformat(delivered_at.replace('Z', '+00:00'))
+                if delivered_date >= today_start:
+                    today_earnings += float(trans.get('deliverer_fee', 0))
+            except:
+                pass
+
+    deliverer['today_earnings'] = today_earnings
 
     # Calculate total earnings (all time)
-    total_earnings = conn.execute("""
-        SELECT COALESCE(SUM(deliverer_fee), 0) as total
-        FROM transactions
-        WHERE deliverer_id = ?
-        AND status IN ('DELIVERED', 'COMPLETED')
-    """, (deliverer['id'],)).fetchone()['total']
+    all_completed = db.collection('transactions').where(
+        filter=FieldFilter('deliverer_id', '==', deliverer['id'])
+    ).where(
+        filter=FieldFilter('status', 'in', ['DELIVERED', 'COMPLETED'])
+    ).stream()
 
-    deliverer_dict['total_earnings'] = total_earnings
+    total_earnings = sum(float(doc.to_dict().get('deliverer_fee', 0)) for doc in all_completed)
+    deliverer['total_earnings'] = total_earnings
 
     # Calculate pending settlements (picked up but not delivered)
-    pending_settlements = conn.execute("""
-        SELECT COALESCE(SUM(deliverer_fee), 0) as total
-        FROM transactions
-        WHERE deliverer_id = ?
-        AND status IN ('PICKED_UP', 'IN_TRANSIT')
-    """, (deliverer['id'],)).fetchone()['total']
+    pending_settlements = sum(float(trans.get('deliverer_fee', 0)) for trans in active_deliveries)
+    deliverer['pending_settlements'] = pending_settlements
 
-    deliverer_dict['pending_settlements'] = pending_settlements
-
-    # Get deliverer name (from email or create a display name)
-    deliverer_dict['name'] = deliverer_dict.get('email', 'Deliverer').split('@')[0].title()
+    # Get deliverer name
+    deliverer['name'] = deliverer.get('email', 'Deliverer').split('@')[0].title()
 
     # === PERFORMANCE METRICS ===
 
-    # Total deliveries count (all time)
-    total_deliveries_count = conn.execute("""
-        SELECT COUNT(*) as count
-        FROM transactions
-        WHERE deliverer_id = ?
-        AND status IN ('DELIVERED', 'COMPLETED')
-    """, (deliverer['id'],)).fetchone()['count']
+    # Recount all completed deliveries for metrics
+    all_completed = db.collection('transactions').where(
+        filter=FieldFilter('deliverer_id', '==', deliverer['id'])
+    ).where(
+        filter=FieldFilter('status', 'in', ['DELIVERED', 'COMPLETED'])
+    ).stream()
 
-    deliverer_dict['total_deliveries'] = total_deliveries_count
+    total_deliveries_count = sum(1 for _ in all_completed)
+    deliverer['total_deliveries'] = total_deliveries_count
 
-    # On-time delivery rate (assuming deliveries within expected time are on-time)
-    # For now, we'll use 95% as a placeholder - in production this would be calculated from actual delivery times
+    # On-time delivery rate (95% placeholder)
     on_time_count = int(total_deliveries_count * 0.95) if total_deliveries_count > 0 else 0
     on_time_rate = (on_time_count / total_deliveries_count * 100) if total_deliveries_count > 0 else 100.0
-    deliverer_dict['on_time_rate'] = round(on_time_rate, 1)
+    deliverer['on_time_rate'] = round(on_time_rate, 1)
 
-    # Acceptance rate - calculate from claimed vs available deliveries
-    # Get total offers made to this deliverer (simplified - using all available pickups as proxy)
-    total_offers = total_deliveries_count + len(deliverer_dict['available_pickups'])
+    # Acceptance rate
+    total_offers = total_deliveries_count + len(deliverer['available_pickups'])
     acceptance_rate = (total_deliveries_count / total_offers * 100) if total_offers > 0 else 100.0
-    deliverer_dict['acceptance_rate'] = round(acceptance_rate, 1)
+    deliverer['acceptance_rate'] = round(acceptance_rate, 1)
 
-    # Cancellation rate - percentage of cancelled deliveries
-    cancelled_count = conn.execute("""
-        SELECT COUNT(*) as count
-        FROM transactions
-        WHERE deliverer_id = ?
-        AND status = 'CANCELLED'
-    """, (deliverer['id'],)).fetchone()['count']
+    # Cancellation rate
+    cancelled_query = db.collection('transactions').where(
+        filter=FieldFilter('deliverer_id', '==', deliverer['id'])
+    ).where(
+        filter=FieldFilter('status', '==', 'CANCELLED')
+    ).stream()
 
+    cancelled_count = sum(1 for _ in cancelled_query)
     total_assigned = total_deliveries_count + cancelled_count
     cancellation_rate = (cancelled_count / total_assigned * 100) if total_assigned > 0 else 0.0
-    deliverer_dict['cancellation_rate'] = round(cancellation_rate, 1)
+    deliverer['cancellation_rate'] = round(cancellation_rate, 1)
 
-    # Performance Score (composite metric out of 100)
-    # Formula: (on_time_rate * 0.5) + (acceptance_rate * 0.3) + ((100 - cancellation_rate) * 0.2)
+    # Performance Score
     performance_score = (
         (on_time_rate * 0.5) +
         (acceptance_rate * 0.3) +
         ((100 - cancellation_rate) * 0.2)
     )
-    deliverer_dict['performance_score'] = round(performance_score, 1)
+    deliverer['performance_score'] = round(performance_score, 1)
 
-    # Calculate streak (consecutive days with at least 1 delivery)
-    # For simplicity, we'll set a default - in production this would be calculated from delivery history
-    deliverer_dict['delivery_streak'] = min(total_deliveries_count, 7)  # Cap at 7 for demo
+    # Delivery streak
+    deliverer['delivery_streak'] = min(total_deliveries_count, 7)
 
-    return render_template('deliverer_dashboard.html', deliverer=deliverer_dict)
+    return render_template('deliverer_dashboard.html', deliverer=deliverer)
 
 
-@deliverer_bp.route('/claim/<int:order_id>', methods=['POST'])
+@deliverer_bp.route('/claim/<order_id>', methods=['POST'])
 @login_required
 @deliverer_required
 def claim_delivery(order_id):
     """Claim a delivery for pickup"""
     user = session.get('user')
-    conn = get_db_connection()
-    
+
     # Get deliverer info
-    deliverer = conn.execute(
-        'SELECT id FROM deliverers WHERE user_id = ? AND is_verified = 1',
-        (user['id'],)
-    ).fetchone()
-    
-    if not deliverer:
+    deliverer = deliverer_service.get_by_user_id(user['id'])
+
+    if not deliverer or not deliverer.get('is_verified'):
         return jsonify({'success': False, 'error': 'You must be verified to claim deliveries'}), 403
-    
+
     # Check if order is available
-    transaction = conn.execute("""
-        SELECT * FROM transactions
-        WHERE id = ? AND status = 'READY_FOR_PICKUP' AND deliverer_id IS NULL
-    """, (order_id,)).fetchone()
-    
-    if not transaction:
+    from firebase_config import get_firestore_db
+    db = get_firestore_db()
+
+    transaction_doc = db.collection('transactions').document(order_id).get()
+
+    if not transaction_doc.exists:
         return jsonify({'success': False, 'error': 'Delivery not available'}), 404
-    
+
+    transaction = transaction_doc.to_dict()
+
+    if transaction.get('status') != 'READY_FOR_PICKUP' or transaction.get('deliverer_id'):
+        return jsonify({'success': False, 'error': 'Delivery not available'}), 404
+
     try:
         # Assign deliverer to order
-        conn.execute("""
-            UPDATE transactions
-            SET deliverer_id = ?, status = 'PICKED_UP', pickup_verified_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        """, (deliverer['id'], order_id))
-        
+        db.collection('transactions').document(order_id).update({
+            'deliverer_id': deliverer['id'],
+            'status': 'PICKED_UP',
+            'pickup_verified_at': firestore.SERVER_TIMESTAMP
+        })
+
         # Add tracking entry
-        conn.execute("""
-            INSERT INTO delivery_tracking (transaction_id, status, notes, created_by)
-            VALUES (?, 'PICKED_UP', 'Deliverer claimed and collected order', ?)
-        """, (order_id, user['id']))
-        
-        conn.commit()
-        
+        delivery_tracking_service.create({
+            'transaction_id': order_id,
+            'status': 'PICKED_UP',
+            'notes': 'Deliverer claimed and collected order',
+            'created_by': user['id']
+        })
+
         return jsonify({'success': True, 'message': 'Delivery claimed successfully!'})
-        
+
     except Exception as e:
-        conn.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -568,83 +575,86 @@ def verify_delivery():
 def update_location():
     """Update deliverer's current location (for live tracking)"""
     user = session.get('user')
-    conn = get_db_connection()
-    
+
     order_id = request.json.get('order_id')
     latitude = request.json.get('latitude')
     longitude = request.json.get('longitude')
-    
+
     if not all([order_id, latitude, longitude]):
         return jsonify({'success': False, 'error': 'Missing parameters'}), 400
-    
+
     try:
         # Add tracking with location
-        conn.execute("""
-            INSERT INTO delivery_tracking 
-            (transaction_id, status, notes, latitude, longitude, created_by)
-            VALUES (?, 'IN_TRANSIT', 'Location update', ?, ?, ?)
-        """, (order_id, latitude, longitude, user['id']))
-        
-        conn.commit()
-        
+        delivery_tracking_service.create({
+            'transaction_id': order_id,
+            'status': 'IN_TRANSIT',
+            'notes': 'Location update',
+            'latitude': latitude,
+            'longitude': longitude,
+            'created_by': user['id']
+        })
+
         return jsonify({'success': True})
-        
+
     except Exception as e:
-        conn.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@deliverer_bp.route('/track/<int:order_id>')
+@deliverer_bp.route('/track/<order_id>')
 def track_delivery(order_id):
     """Live delivery tracking page (for buyers)"""
-    conn = get_db_connection()
-    
-    transaction = conn.execute("""
-        SELECT t.*, 
-               s.name as seller_name,
-               s.location as seller_location,
-               u.email as buyer_email,
-               u.address as buyer_address,
-               d.vehicle_type,
-               du.email as driver_email
-        FROM transactions t
-        JOIN sellers s ON t.seller_id = s.id
-        JOIN users u ON t.user_id = u.id
-        LEFT JOIN deliverers d ON t.deliverer_id = d.id
-        LEFT JOIN users du ON d.user_id = du.id
-        WHERE t.id = ?
-    """, (order_id,)).fetchone()
-    
-    if not transaction:
+    from firebase_config import get_firestore_db
+    db = get_firestore_db()
+
+    transaction_doc = db.collection('transactions').document(order_id).get()
+
+    if not transaction_doc.exists:
         flash('Order not found', 'error')
         return redirect(url_for('marketplace.feed'))
-    
-    transaction_dict = dict(transaction)
-    
+
+    transaction = {**transaction_doc.to_dict(), 'id': transaction_doc.id}
+
+    # Get seller info
+    if transaction.get('seller_id'):
+        seller = seller_service.get(transaction['seller_id'])
+        transaction['seller_name'] = seller.get('name', '') if seller else ''
+        transaction['seller_location'] = seller.get('location', '') if seller else ''
+
+    # Get buyer info
+    if transaction.get('user_id'):
+        user_service = get_user_service()
+        buyer = user_service.get(transaction['user_id'])
+        transaction['buyer_email'] = buyer.get('email', '') if buyer else ''
+        transaction['buyer_address'] = buyer.get('address', '') if buyer else ''
+
+    # Get deliverer info
+    if transaction.get('deliverer_id'):
+        deliverer = deliverer_service.get(transaction['deliverer_id'])
+        if deliverer:
+            transaction['vehicle_type'] = deliverer.get('vehicle_type', '')
+            # Get deliverer user email
+            if deliverer.get('user_id'):
+                deliverer_user = get_user_service().get(deliverer['user_id'])
+                transaction['driver_email'] = deliverer_user.get('email', '') if deliverer_user else ''
+
     # Get tracking history with locations
-    tracking = conn.execute("""
-        SELECT * FROM delivery_tracking
-        WHERE transaction_id = ?
-        ORDER BY created_at DESC
-    """, (order_id,)).fetchall()
-    
-    transaction_dict['tracking'] = [dict(t) for t in tracking]
-    
+    tracking = delivery_tracking_service.get_transaction_tracking(order_id)
+    transaction['tracking'] = tracking
+
     # Get latest location
     latest_location = next(
-        (t for t in transaction_dict['tracking'] if t.get('latitude') and t.get('longitude')),
+        (t for t in tracking if t.get('latitude') and t.get('longitude')),
         None
     )
-    transaction_dict['latest_location'] = latest_location
-    
+    transaction['latest_location'] = latest_location
+
     # Calculate estimated distance (mock calculation)
     if latest_location:
-        # In production, use Google Maps Distance Matrix API
-        transaction_dict['estimated_distance_km'] = round(random.uniform(0.5, 5.0), 1)
-        transaction_dict['estimated_time_minutes'] = round(transaction_dict['estimated_distance_km'] * 3)
-    
-    return render_template('deliverer/track_delivery.html', 
-                         transaction=transaction_dict,
+        transaction['estimated_distance_km'] = round(random.uniform(0.5, 5.0), 1)
+        transaction['estimated_time_minutes'] = round(transaction['estimated_distance_km'] * 3)
+
+    return render_template('deliverer/track_delivery.html',
+                         transaction=transaction,
                          google_maps_key=current_app.config['GOOGLE_MAPS_API_KEY'])
 
 
@@ -654,91 +664,119 @@ def track_delivery(order_id):
 def earnings():
     """Deliverer earnings history page with route breakdown"""
     user = session.get('user')
-    conn = get_db_connection()
-    
-    deliverer = conn.execute('SELECT * FROM deliverers WHERE user_id = ?', (user['id'],)).fetchone()
+
+    deliverer = deliverer_service.get_by_user_id(user['id'])
     if not deliverer:
         return redirect(url_for('deliverer.setup'))
-    
-    deliverer_dict = dict(deliverer)
-    
+
     # Get time period from query
     period = request.args.get('period', 'month')
-    
+
     if period == 'day':
         days = 1
     elif period == 'week':
         days = 7
     else:  # month
         days = 30
-    
+
     # Get route-based earnings breakdown
     from .utils import get_deliverer_route_earnings
-    
+
     route_earnings = get_deliverer_route_earnings(deliverer['id'], None, days)
-    deliverer_dict['route_earnings'] = route_earnings
-    
+    deliverer['route_earnings'] = route_earnings
+
     # Calculate totals
     total_deliveries = sum(r['delivery_count'] for r in route_earnings)
     total_gross = sum(r['gross_earnings'] for r in route_earnings)
     total_platform_fees = sum(r['platform_fees'] for r in route_earnings)
     total_net = sum(r['net_earnings'] for r in route_earnings)
-    
-    deliverer_dict['total_deliveries'] = total_deliveries
-    deliverer_dict['total_gross'] = total_gross
-    deliverer_dict['total_platform_fees'] = total_platform_fees
-    deliverer_dict['total_net'] = total_net
-    deliverer_dict['average_per_delivery'] = total_net / total_deliveries if total_deliveries > 0 else 0
-    deliverer_dict['period'] = period
-    deliverer_dict['platform_fee_rate'] = current_app.config['DELIVERER_PLATFORM_FEE_RATE']
-    
-    return render_template('deliverer/earnings.html', deliverer=deliverer_dict)
+
+    deliverer['total_deliveries'] = total_deliveries
+    deliverer['total_gross'] = total_gross
+    deliverer['total_platform_fees'] = total_platform_fees
+    deliverer['total_net'] = total_net
+    deliverer['average_per_delivery'] = total_net / total_deliveries if total_deliveries > 0 else 0
+    deliverer['period'] = period
+    deliverer['platform_fee_rate'] = current_app.config['DELIVERER_PLATFORM_FEE_RATE']
+
+    return render_template('deliverer/earnings.html', deliverer=deliverer)
 
 
 @deliverer_bp.route('/leaderboard')
 def leaderboard():
     """Gamified deliverer leaderboard"""
-    conn = get_db_connection()
-    
+    from firebase_config import get_firestore_db
+    db = get_firestore_db()
+
     # Get time period
     period = request.args.get('period', 'month')
-    
+
     if period == 'day':
-        date_filter = "DATE(t.delivered_at) = DATE('now')"
+        days = 1
     elif period == 'week':
-        date_filter = "DATE(t.delivered_at) >= DATE('now', '-7 days')"
+        days = 7
     else:  # month
-        date_filter = "DATE(t.delivered_at) >= DATE('now', '-30 days')"
-    
-    # Get top deliverers by earnings
-    top_earners = conn.execute(f"""
-        SELECT
-            d.id,
-            u.email as deliverer_name,
-            d.vehicle_type,
-            d.rating,
-            COUNT(t.id) as delivery_count,
-            SUM(t.deliverer_fee) as total_earned
-        FROM deliverers d
-        JOIN users u ON d.user_id = u.id
-        LEFT JOIN transactions t ON t.deliverer_id = d.id 
-            AND t.status IN ('DELIVERED', 'COMPLETED')
-            AND {date_filter}
-        WHERE d.is_verified = 1 AND d.is_active = 1
-        GROUP BY d.id, u.email, d.vehicle_type, d.rating
-        ORDER BY total_earned DESC
-        LIMIT 20
-    """).fetchall()
-    
+        days = 30
+
+    cutoff_date = datetime.now() - timedelta(days=days)
+
+    # Get all verified deliverers
+    all_deliverers = deliverer_service.get_all_deliverers(is_active=True)
+
     leaderboard_data = []
-    for rank, deliverer in enumerate(top_earners, 1):
-        deliverer_dict = dict(deliverer)
-        deliverer_dict['rank'] = rank
-        deliverer_dict['badge'] = get_rank_badge(rank)
-        leaderboard_data.append(deliverer_dict)
-    
-    return render_template('deliverer/leaderboard.html', 
-                         leaderboard=leaderboard_data,
+
+    for deliverer in all_deliverers:
+        if not deliverer.get('is_verified'):
+            continue
+
+        # Get user email
+        deliverer_user = get_user_service().get(deliverer['user_id'])
+        deliverer_name = deliverer_user.get('email', '').split('@')[0] if deliverer_user else 'Unknown'
+
+        # Count deliveries and earnings in period
+        transactions = db.collection('transactions').where(
+            filter=FieldFilter('deliverer_id', '==', deliverer['id'])
+        ).where(
+            filter=FieldFilter('status', 'in', ['DELIVERED', 'COMPLETED'])
+        ).stream()
+
+        delivery_count = 0
+        total_earned = 0.0
+
+        for doc in transactions:
+            trans = doc.to_dict()
+            delivered_at = trans.get('delivered_at')
+
+            # Filter by date
+            if delivered_at and isinstance(delivered_at, str):
+                try:
+                    delivered_date = datetime.fromisoformat(delivered_at.replace('Z', '+00:00'))
+                    if delivered_date >= cutoff_date:
+                        delivery_count += 1
+                        total_earned += float(trans.get('deliverer_fee', 0))
+                except:
+                    pass
+
+        if delivery_count > 0 or total_earned > 0:
+            leaderboard_data.append({
+                'id': deliverer['id'],
+                'deliverer_name': deliverer_name,
+                'vehicle_type': deliverer.get('vehicle_type', ''),
+                'rating': deliverer.get('rating', 0.0),
+                'delivery_count': delivery_count,
+                'total_earned': total_earned
+            })
+
+    # Sort by total earned
+    leaderboard_data.sort(key=lambda x: x['total_earned'], reverse=True)
+
+    # Add rank and badge
+    for rank, deliverer in enumerate(leaderboard_data[:20], 1):
+        deliverer['rank'] = rank
+        deliverer['badge'] = get_rank_badge(rank)
+
+    return render_template('deliverer/leaderboard.html',
+                         leaderboard=leaderboard_data[:20],
                          period=period)
 
 
@@ -758,23 +796,34 @@ def get_rank_badge(rank):
 def verification_status():
     """Check deliverer verification status"""
     user = session.get('user')
-    conn = get_db_connection()
-    
-    deliverer = conn.execute("""
-        SELECT d.*,
-               vs.status as verification_status,
-               vs.rejection_reason,
-               vs.submitted_at,
-               vs.reviewed_at
-        FROM deliverers d
-        LEFT JOIN verification_submissions vs ON vs.user_id = d.user_id AND vs.submission_type = 'driver'
-        WHERE d.user_id = ?
-    """, (user['id'],)).fetchone()
-    
+
+    deliverer = deliverer_service.get_by_user_id(user['id'])
+
     if not deliverer:
         return redirect(url_for('deliverer.setup'))
-    
-    return render_template('deliverer/verification_status.html', deliverer=dict(deliverer))
+
+    # Get verification submission if exists
+    from firebase_db import verification_submission_service
+    from firebase_config import get_firestore_db
+    db = get_firestore_db()
+
+    vs_query = db.collection('verification_submissions').where(
+        filter=FieldFilter('user_id', '==', user['id'])
+    ).where(
+        filter=FieldFilter('submission_type', '==', 'driver')
+    ).limit(1).stream()
+
+    verification_data = None
+    for doc in vs_query:
+        verification_data = {**doc.to_dict(), 'id': doc.id}
+        break
+
+    deliverer['verification_status'] = verification_data.get('status') if verification_data else None
+    deliverer['rejection_reason'] = verification_data.get('rejection_reason') if verification_data else None
+    deliverer['submitted_at'] = verification_data.get('submitted_at') if verification_data else None
+    deliverer['reviewed_at'] = verification_data.get('reviewed_at') if verification_data else None
+
+    return render_template('deliverer/verification_status.html', deliverer=deliverer)
 
 
 @deliverer_bp.route('/pricing', methods=['GET', 'POST'])
@@ -783,69 +832,63 @@ def verification_status():
 def update_pricing():
     """Update deliverer pricing settings"""
     user = session.get('user')
-    conn = get_db_connection()
-    
-    deliverer = conn.execute('SELECT * FROM deliverers WHERE user_id = ?', (user['id'],)).fetchone()
-    
+
+    deliverer = deliverer_service.get_by_user_id(user['id'])
+
     if not deliverer:
         return redirect(url_for('deliverer.setup'))
-    
+
     if request.method == 'POST':
-        price_per_km = float(request.form.get('price_per_km', deliverer['price_per_km']))
-        base_fee = float(request.form.get('base_fee', deliverer['base_fee']))
-        max_delivery_distance = float(request.form.get('max_delivery_distance', deliverer['max_delivery_distance_km']))
-        service_areas = request.form.get('service_areas', deliverer['service_areas'] or '').strip()
+        price_per_km = float(request.form.get('price_per_km', deliverer.get('price_per_km', 8.0)))
+        base_fee = float(request.form.get('base_fee', deliverer.get('base_fee', 15.0)))
+        max_delivery_distance = float(request.form.get('max_delivery_distance', deliverer.get('max_delivery_distance_km', 50.0)))
+        service_areas = request.form.get('service_areas', deliverer.get('service_areas', '')).strip()
         is_available = request.form.get('is_available') == 'on'
-        
+
         # Validate pricing
         errors = []
-        
+
         if price_per_km < current_app.config['MIN_PRICE_PER_KM']:
             errors.append(f"Price per km must be at least R{current_app.config['MIN_PRICE_PER_KM']}")
-        
+
         if price_per_km > current_app.config['MAX_PRICE_PER_KM']:
             errors.append(f"Price per km cannot exceed R{current_app.config['MAX_PRICE_PER_KM']}")
-        
+
         if base_fee < current_app.config['MIN_BASE_FEE']:
             errors.append(f"Base fee must be at least R{current_app.config['MIN_BASE_FEE']}")
-        
+
         if base_fee > current_app.config['MAX_BASE_FEE']:
             errors.append(f"Base fee cannot exceed R{current_app.config['MAX_BASE_FEE']}")
-        
+
         if errors:
-            return render_template('deliverer/pricing.html', 
-                                 deliverer=dict(deliverer), 
+            deliverer['platform_fee_rate'] = current_app.config['DELIVERER_PLATFORM_FEE_RATE']
+            return render_template('deliverer/pricing.html',
+                                 deliverer=deliverer,
                                  errors=errors,
                                  platform_fee_rate=current_app.config['DELIVERER_PLATFORM_FEE_RATE'])
-        
+
         try:
-            conn.execute("""
-                UPDATE deliverers
-                SET price_per_km = ?,
-                    base_fee = ?,
-                    max_delivery_distance_km = ?,
-                    service_areas = ?,
-                    is_available = ?
-                WHERE user_id = ?
-            """, (price_per_km, base_fee, max_delivery_distance, service_areas, is_available, user['id']))
-            
-            conn.commit()
-            
+            deliverer_service.update(deliverer['id'], {
+                'price_per_km': price_per_km,
+                'base_fee': base_fee,
+                'max_delivery_distance_km': max_delivery_distance,
+                'service_areas': service_areas,
+                'is_available': is_available
+            })
+
             flash('Pricing updated successfully!', 'success')
             return redirect(url_for('deliverer.dashboard'))
-            
+
         except Exception as e:
-            conn.rollback()
             flash(f'Update failed: {str(e)}', 'error')
-    
-    deliverer_dict = dict(deliverer)
-    deliverer_dict['platform_fee_rate'] = current_app.config['DELIVERER_PLATFORM_FEE_RATE']
-    deliverer_dict['min_price_per_km'] = current_app.config['MIN_PRICE_PER_KM']
-    deliverer_dict['max_price_per_km'] = current_app.config['MAX_PRICE_PER_KM']
-    deliverer_dict['min_base_fee'] = current_app.config['MIN_BASE_FEE']
-    deliverer_dict['max_base_fee'] = current_app.config['MAX_BASE_FEE']
-    
-    return render_template('deliverer/pricing.html', deliverer=deliverer_dict)
+
+    deliverer['platform_fee_rate'] = current_app.config['DELIVERER_PLATFORM_FEE_RATE']
+    deliverer['min_price_per_km'] = current_app.config['MIN_PRICE_PER_KM']
+    deliverer['max_price_per_km'] = current_app.config['MAX_PRICE_PER_KM']
+    deliverer['min_base_fee'] = current_app.config['MIN_BASE_FEE']
+    deliverer['max_base_fee'] = current_app.config['MAX_BASE_FEE']
+
+    return render_template('deliverer/pricing.html', deliverer=deliverer)
 
 
 @deliverer_bp.route('/api/quotes', methods=['POST'])
@@ -887,41 +930,49 @@ def check_new_deliveries():
     Returns count of new deliveries since last check
     """
     user = session.get('user')
-    conn = get_db_connection()
+    from firebase_config import get_firestore_db
+    db = get_firestore_db()
 
     # Get last check time from session (or default to 1 minute ago)
     last_check = session.get('last_delivery_check', (datetime.now() - timedelta(minutes=1)).isoformat())
 
     # Count new deliveries since last check
-    new_deliveries_count = conn.execute("""
-        SELECT COUNT(*) as count
-        FROM transactions
-        WHERE status = 'READY_FOR_PICKUP'
-        AND deliverer_id IS NULL
-        AND delivery_method = 'public_transport'
-        AND timestamp > ?
-    """, (last_check,)).fetchone()['count']
+    new_deliveries_query = db.collection('transactions').where(
+        filter=FieldFilter('status', '==', 'READY_FOR_PICKUP')
+    ).where(
+        filter=FieldFilter('delivery_method', '==', 'public_transport')
+    ).stream()
+
+    new_deliveries_list = []
+    for doc in new_deliveries_query:
+        trans = {**doc.to_dict(), 'id': doc.id}
+        # Skip if has deliverer or before last check
+        if trans.get('deliverer_id'):
+            continue
+
+        timestamp = trans.get('timestamp', '')
+        if timestamp and isinstance(timestamp, str):
+            try:
+                trans_time = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                last_check_time = datetime.fromisoformat(last_check.replace('Z', '+00:00'))
+                if trans_time > last_check_time:
+                    # Get seller name
+                    seller = seller_service.get(trans.get('seller_id', ''))
+                    new_deliveries_list.append({
+                        'id': trans['id'],
+                        'total_amount': trans.get('total_amount', 0),
+                        'seller_name': seller.get('name', '') if seller else ''
+                    })
+            except:
+                pass
 
     # Update last check time
     session['last_delivery_check'] = datetime.now().isoformat()
 
-    # Get details of new deliveries
-    new_deliveries = conn.execute("""
-        SELECT t.id, t.total_amount, s.name as seller_name
-        FROM transactions t
-        JOIN sellers s ON t.seller_id = s.id
-        WHERE t.status = 'READY_FOR_PICKUP'
-        AND t.deliverer_id IS NULL
-        AND t.delivery_method = 'public_transport'
-        AND t.timestamp > ?
-        ORDER BY t.timestamp DESC
-        LIMIT 5
-    """, (last_check,)).fetchall()
-
     return jsonify({
         'success': True,
-        'new_deliveries': new_deliveries_count,
-        'deliveries': [dict(d) for d in new_deliveries]
+        'new_deliveries': len(new_deliveries_list),
+        'deliveries': new_deliveries_list[:5]
     })
 
 
@@ -934,29 +985,56 @@ def get_earnings_data():
     Returns daily earnings for the past week
     """
     user = session.get('user')
-    conn = get_db_connection()
 
-    deliverer = conn.execute('SELECT id FROM deliverers WHERE user_id = ?', (user['id'],)).fetchone()
+    deliverer = deliverer_service.get_by_user_id(user['id'])
     if not deliverer:
         return jsonify({'success': False, 'error': 'Deliverer not found'}), 404
 
     # Get daily earnings for the past 7 days
-    earnings_data = conn.execute("""
-        SELECT
-            DATE(delivered_at) as date,
-            COUNT(*) as deliveries,
-            COALESCE(SUM(deliverer_fee), 0) as earnings
-        FROM transactions
-        WHERE deliverer_id = ?
-        AND status IN ('DELIVERED', 'COMPLETED')
-        AND DATE(delivered_at) >= DATE('now', '-7 days')
-        GROUP BY DATE(delivered_at)
-        ORDER BY DATE(delivered_at) ASC
-    """, (deliverer['id'],)).fetchall()
+    from firebase_config import get_firestore_db
+    db = get_firestore_db()
+
+    cutoff_date = datetime.now() - timedelta(days=7)
+
+    transactions = db.collection('transactions').where(
+        filter=FieldFilter('deliverer_id', '==', deliverer['id'])
+    ).where(
+        filter=FieldFilter('status', 'in', ['DELIVERED', 'COMPLETED'])
+    ).stream()
+
+    # Group by date
+    daily_earnings = {}
+
+    for doc in transactions:
+        trans = doc.to_dict()
+        delivered_at = trans.get('delivered_at')
+
+        if delivered_at and isinstance(delivered_at, str):
+            try:
+                delivered_date = datetime.fromisoformat(delivered_at.replace('Z', '+00:00'))
+                if delivered_date >= cutoff_date:
+                    date_str = delivered_date.strftime('%Y-%m-%d')
+                    if date_str not in daily_earnings:
+                        daily_earnings[date_str] = {'deliveries': 0, 'earnings': 0.0}
+
+                    daily_earnings[date_str]['deliveries'] += 1
+                    daily_earnings[date_str]['earnings'] += float(trans.get('deliverer_fee', 0))
+            except:
+                pass
+
+    # Convert to list
+    earnings_list = [
+        {
+            'date': date,
+            'deliveries': data['deliveries'],
+            'earnings': data['earnings']
+        }
+        for date, data in sorted(daily_earnings.items())
+    ]
 
     return jsonify({
         'success': True,
-        'earnings': [dict(e) for e in earnings_data]
+        'earnings': earnings_list
     })
 
 
@@ -968,26 +1046,20 @@ def toggle_availability():
     API endpoint to toggle deliverer availability status
     """
     user = session.get('user')
-    conn = get_db_connection()
 
-    deliverer = conn.execute('SELECT * FROM deliverers WHERE user_id = ?', (user['id'],)).fetchone()
+    deliverer = deliverer_service.get_by_user_id(user['id'])
     if not deliverer:
         return jsonify({'success': False, 'error': 'Deliverer not found'}), 404
 
     # Get the desired availability state from request
     data = request.get_json() or {}
-    is_available = data.get('is_available', not deliverer['is_available'])
+    is_available = data.get('is_available', not deliverer.get('is_available', True))
 
     try:
         # Update availability status
-        conn.execute("""
-            UPDATE deliverers
-            SET is_available = ?,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        """, (1 if is_available else 0, deliverer['id']))
-
-        conn.commit()
+        deliverer_service.update(deliverer['id'], {
+            'is_available': is_available
+        })
 
         return jsonify({
             'success': True,
@@ -995,169 +1067,206 @@ def toggle_availability():
             'message': f"You are now {'active' if is_available else 'inactive'}"
         })
     except Exception as e:
-        conn.rollback()
         return jsonify({
             'success': False,
             'error': f'Failed to update availability: {str(e)}'
         }), 500
 
-# ==================== ENHANCED DRIVER DELIVERY CODE MANAGEMENT ====================
+
+# ==================== DELIVERY CODE MANAGEMENT ====================
 
 @deliverer_bp.route('/delivery-codes')
 @login_required
 def view_delivery_codes():
     """View all buyer delivery codes for assigned orders"""
     user = session.get('user')
-    db = get_db()
-    
+    from firebase_config import get_firestore_db
+    db = get_firestore_db()
+
     # Get deliverer ID
-    deliverer = db.execute('SELECT id FROM deliverers WHERE user_id = ?', (user['id'],)).fetchone()
+    deliverer = deliverer_service.get_by_user_id(user['id'])
     if not deliverer:
         flash('Please complete your deliverer profile setup.', 'warning')
-        return redirect(url_for('deliverer.setup_profile'))
-    
-    deliverer_id = deliverer['id']
-    
+        return redirect(url_for('deliverer.setup'))
+
     # Get orders with buyer delivery codes
-    orders = db.execute("""
-        SELECT t.*, u.email as buyer_email,
-               s.name as seller_name,
-               t.delivery_code, t.pickup_code
-        FROM transactions t
-        JOIN users u ON t.user_id = u.id
-        JOIN sellers s ON t.seller_id = s.id
-        WHERE t.deliverer_id = ? AND t.delivery_code IS NOT NULL
-        AND t.status IN ('IN_TRANSIT', 'PICKED_UP')
-        ORDER BY t.updated_at DESC
-    """, (deliverer_id,)).fetchall()
-    
-    return render_template('deliverer/delivery_codes.html', orders=[dict(o) for o in orders])
+    orders_query = db.collection('transactions').where(
+        filter=FieldFilter('deliverer_id', '==', deliverer['id'])
+    ).where(
+        filter=FieldFilter('status', 'in', ['IN_TRANSIT', 'PICKED_UP'])
+    ).stream()
+
+    orders = []
+    for doc in orders_query:
+        trans = {**doc.to_dict(), 'id': doc.id}
+
+        # Get buyer and seller info
+        if trans.get('user_id'):
+            buyer = get_user_service().get(trans['user_id'])
+            trans['buyer_email'] = buyer.get('email', '') if buyer else ''
+
+        if trans.get('seller_id'):
+            seller = seller_service.get(trans['seller_id'])
+            trans['seller_name'] = seller.get('name', '') if seller else ''
+
+        orders.append(trans)
+
+    # Sort by updated_at
+    orders.sort(key=lambda x: x.get('updated_at', ''), reverse=True)
+
+    return render_template('deliverer/delivery_codes.html', orders=orders)
+
 
 @deliverer_bp.route('/returns/pickup')
 @login_required
 def return_pickups():
     """View return pickup requests"""
     user = session.get('user')
-    db = get_db()
-    
-    # Get deliverer ID
-    deliverer = db.execute('SELECT id FROM deliverers WHERE user_id = ?', (user['id'],)).fetchone()
-    if not deliverer:
-        return redirect(url_for('deliverer.setup_profile'))
-    
-    deliverer_id = deliverer['id']
-    
-    # Get approved returns that need pickup
-    returns = db.execute("""
-        SELECT r.*, t.id as transaction_id, t.delivery_address,
-               s.name as seller_name, s.location as seller_location,
-               u.email as buyer_email
-        FROM return_requests r
-        JOIN transactions t ON r.transaction_id = t.id
-        JOIN sellers s ON r.seller_id = s.id
-        JOIN users u ON r.user_id = u.id
-        WHERE r.status IN ('APPROVED', 'PICKUP_SCHEDULED')
-        AND t.deliverer_id = ?
-        ORDER BY r.created_at DESC
-    """, (deliverer_id,)).fetchall()
-    
-    return render_template('deliverer/return_pickups.html', returns=[dict(r) for r in returns])
+    from firebase_config import get_firestore_db
+    db = get_firestore_db()
 
-@deliverer_bp.route('/return/<int:return_id>/pickup', methods=['POST'])
+    # Get deliverer ID
+    deliverer = deliverer_service.get_by_user_id(user['id'])
+    if not deliverer:
+        return redirect(url_for('deliverer.setup'))
+
+    # Get approved returns that need pickup
+    returns_query = db.collection('return_requests').where(
+        filter=FieldFilter('status', 'in', ['APPROVED', 'PICKUP_SCHEDULED'])
+    ).stream()
+
+    returns = []
+    for doc in returns_query:
+        return_req = {**doc.to_dict(), 'id': doc.id}
+
+        # Get transaction to check if assigned to this deliverer
+        trans_id = return_req.get('transaction_id')
+        if trans_id:
+            trans_doc = db.collection('transactions').document(trans_id).get()
+            if trans_doc.exists:
+                trans = trans_doc.to_dict()
+                if trans.get('deliverer_id') == deliverer['id']:
+                    return_req['transaction_id'] = trans_id
+                    return_req['delivery_address'] = trans.get('delivery_address', '')
+
+                    # Get seller and buyer info
+                    if return_req.get('seller_id'):
+                        seller = seller_service.get(return_req['seller_id'])
+                        return_req['seller_name'] = seller.get('name', '') if seller else ''
+                        return_req['seller_location'] = seller.get('location', '') if seller else ''
+
+                    if return_req.get('user_id'):
+                        buyer = get_user_service().get(return_req['user_id'])
+                        return_req['buyer_email'] = buyer.get('email', '') if buyer else ''
+
+                    returns.append(return_req)
+
+    # Sort by created_at
+    returns.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+
+    return render_template('deliverer/return_pickups.html', returns=returns)
+
+
+@deliverer_bp.route('/return/<return_id>/pickup', methods=['POST'])
 @login_required
 def confirm_return_pickup(return_id):
     """Confirm return item has been picked up"""
     user = session.get('user')
-    db = get_db()
-    
+    from firebase_config import get_firestore_db
+    db = get_firestore_db()
+
     # Get deliverer ID
-    deliverer = db.execute('SELECT id FROM deliverers WHERE user_id = ?', (user['id'],)).fetchone()
+    deliverer = deliverer_service.get_by_user_id(user['id'])
     if not deliverer:
         return jsonify({'success': False, 'error': 'Deliverer profile not found'}), 404
-    
-    # Verify ownership
-    return_req = db.execute("""
-        SELECT r.*, t.deliverer_id
-        FROM return_requests r
-        JOIN transactions t ON r.transaction_id = t.id
-        WHERE r.id = ? AND t.deliverer_id = ?
-    """, (return_id, deliverer['id'])).fetchone()
-    
-    if not return_req:
+
+    # Get return request
+    return_doc = db.collection('return_requests').document(return_id).get()
+    if not return_doc.exists:
         return jsonify({'success': False, 'error': 'Return not found'}), 404
-    
+
+    return_req = {**return_doc.to_dict(), 'id': return_doc.id}
+
+    # Verify ownership via transaction
+    trans_id = return_req.get('transaction_id')
+    if trans_id:
+        trans_doc = db.collection('transactions').document(trans_id).get()
+        if not trans_doc.exists or trans_doc.to_dict().get('deliverer_id') != deliverer['id']:
+            return jsonify({'success': False, 'error': 'Return not found'}), 404
+
     # Update return status
-    db.execute("""
-        UPDATE return_requests
-        SET status = 'PICKED_UP', picked_up_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-    """, (return_id,))
-    
+    db.collection('return_requests').document(return_id).update({
+        'status': 'PICKED_UP',
+        'picked_up_at': firestore.SERVER_TIMESTAMP
+    })
+
     # Notify seller and buyer
-    from user.buyer_dashboard import send_notification
-    send_notification(
-        return_req['user_id'],
-        'Return Picked Up',
-        'Driver has picked up your return item',
-        'order',
-        return_req['transaction_id']
+    notification_service = get_notification_service()
+
+    notification_service.create_notification(
+        user_id=return_req['user_id'],
+        title='Return Picked Up',
+        message='Driver has picked up your return item',
+        notification_type='order',
+        data={'transaction_id': trans_id}
     )
-    
-    send_notification(
-        return_req['seller_id'],
-        'Return In Transit',
-        'Driver is returning the item to you',
-        'order',
-        return_req['transaction_id']
+
+    notification_service.create_notification(
+        user_id=return_req.get('seller_id', ''),
+        title='Return In Transit',
+        message='Driver is returning the item to you',
+        notification_type='order',
+        data={'transaction_id': trans_id}
     )
-    
-    db.commit()
+
     return jsonify({'success': True, 'message': 'Return pickup confirmed'})
 
-@deliverer_bp.route('/order/<int:order_id>/verify-code', methods=['POST'])
+
+@deliverer_bp.route('/order/<order_id>/verify-code', methods=['POST'])
 @login_required
 def verify_delivery_code_api(order_id):
     """Verify buyer's delivery code"""
     user = session.get('user')
-    db = get_db()
-    
+    from firebase_config import get_firestore_db
+    db = get_firestore_db()
+
     data = request.get_json()
     entered_code = data.get('code')
-    
+
     # Get deliverer ID
-    deliverer = db.execute('SELECT id FROM deliverers WHERE user_id = ?', (user['id'],)).fetchone()
+    deliverer = deliverer_service.get_by_user_id(user['id'])
     if not deliverer:
         return jsonify({'success': False, 'error': 'Deliverer profile not found'}), 404
-    
+
     # Get order
-    order = db.execute("""
-        SELECT * FROM transactions
-        WHERE id = ? AND deliverer_id = ?
-    """, (order_id, deliverer['id'])).fetchone()
-    
-    if not order:
+    order_doc = db.collection('transactions').document(order_id).get()
+
+    if not order_doc.exists:
         return jsonify({'success': False, 'error': 'Order not found'}), 404
-    
+
+    order = {**order_doc.to_dict(), 'id': order_doc.id}
+
+    if order.get('deliverer_id') != deliverer['id']:
+        return jsonify({'success': False, 'error': 'Order not found'}), 404
+
     # Verify code
-    if order['delivery_code'] == entered_code:
+    if order.get('delivery_code') == entered_code:
         # Update order status to delivered
-        db.execute("""
-            UPDATE transactions
-            SET status = 'DELIVERED', delivered_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        """, (order_id,))
-        
+        db.collection('transactions').document(order_id).update({
+            'status': 'DELIVERED',
+            'delivered_at': firestore.SERVER_TIMESTAMP
+        })
+
         # Notify buyer
-        from user.buyer_dashboard import send_notification
-        send_notification(
-            order['user_id'],
-            'Order Delivered',
-            'Your order has been successfully delivered!',
-            'delivery',
-            order_id
+        notification_service = get_notification_service()
+        notification_service.create_notification(
+            user_id=order['user_id'],
+            title='Order Delivered',
+            message='Your order has been successfully delivered!',
+            notification_type='delivery',
+            data={'order_id': order_id}
         )
-        
-        db.commit()
+
         return jsonify({'success': True, 'message': 'Delivery confirmed!'})
     else:
         return jsonify({'success': False, 'error': 'Invalid delivery code'}), 400

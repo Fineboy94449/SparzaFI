@@ -638,12 +638,12 @@
                     <div class="divider">
                         <span>or continue with</span>
                     </div>
-                    
+
                     <div class="social-login">
                         <button type="button" class="social-btn" disabled title="Coming soon">
                             <span>🔵</span> Facebook
                         </button>
-                        <button type="button" class="social-btn" disabled title="Coming soon">
+                        <button type="button" class="social-btn google-login-btn">
                             <span>🔴</span> Google
                         </button>
                     </div>
@@ -751,7 +751,20 @@
                     <button type="submit" class="submit-btn">
                         Create Your Account
                     </button>
-                    
+
+                    <div class="divider">
+                        <span>or sign up with</span>
+                    </div>
+
+                    <div class="social-login">
+                        <button type="button" class="social-btn" disabled title="Coming soon">
+                            <span>🔵</span> Facebook
+                        </button>
+                        <button type="button" class="social-btn google-login-btn">
+                            <span>🔴</span> Google
+                        </button>
+                    </div>
+
                     <div class="terms-text">
                         By signing up, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
                     </div>
@@ -937,5 +950,14 @@
             }
         });
     }
+
+    // Google OAuth Login
+    const googleLoginBtns = document.querySelectorAll('.google-login-btn');
+    googleLoginBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            // Redirect to Google OAuth endpoint
+            window.location.href = '{{ url_for("auth.google_login") }}';
+        });
+    });
 </script>
 {% endblock %}

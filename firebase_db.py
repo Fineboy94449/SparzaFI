@@ -468,6 +468,390 @@ class DeliveryTrackingService:
         return [{**doc.to_dict(), 'id': doc.id} for doc in docs]
 
 
+class ConversationService:
+    """Conversation operations for chat"""
+
+    def __init__(self):
+        self.db = get_firestore_db()
+        self.collection = self.db.collection('conversations')
+
+    def create(self, data, doc_id=None):
+        """Create a conversation"""
+        import uuid
+        if doc_id is None:
+            doc_id = str(uuid.uuid4())
+
+        data['created_at'] = firestore.SERVER_TIMESTAMP
+        data['last_message_at'] = firestore.SERVER_TIMESTAMP
+
+        self.collection.document(doc_id).set(data)
+        return doc_id
+
+    def get(self, conversation_id):
+        """Get conversation by ID"""
+        doc = self.collection.document(conversation_id).get()
+        if doc.exists:
+            return {**doc.to_dict(), 'id': doc.id}
+        return None
+
+    def get_user_conversations(self, user_id):
+        """Get all conversations for a user"""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+
+        # Get conversations where user is participant (user1 or user2)
+        query1 = self.collection.where(filter=FieldFilter('user1_id', '==', user_id))
+        query2 = self.collection.where(filter=FieldFilter('user2_id', '==', user_id))
+
+        conversations = []
+        for doc in query1.stream():
+            conversations.append({**doc.to_dict(), 'id': doc.id})
+        for doc in query2.stream():
+            conversations.append({**doc.to_dict(), 'id': doc.id})
+
+        # Sort by last_message_at
+        conversations.sort(key=lambda x: x.get('last_message_at', ''), reverse=True)
+        return conversations
+
+    def get_or_create_conversation(self, user1_id, user2_id):
+        """Get existing conversation or create new one"""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+
+        # Try to find existing conversation
+        query = self.collection.where(filter=FieldFilter('user1_id', '==', user1_id))
+        query = query.where(filter=FieldFilter('user2_id', '==', user2_id))
+
+        for doc in query.stream():
+            return {**doc.to_dict(), 'id': doc.id}
+
+        # Try reverse
+        query = self.collection.where(filter=FieldFilter('user1_id', '==', user2_id))
+        query = query.where(filter=FieldFilter('user2_id', '==', user1_id))
+
+        for doc in query.stream():
+            return {**doc.to_dict(), 'id': doc.id}
+
+        # Create new conversation
+        conversation_data = {
+            'user1_id': user1_id,
+            'user2_id': user2_id
+        }
+        conv_id = self.create(conversation_data)
+        return self.get(conv_id)
+
+    def update_last_message(self, conversation_id):
+        """Update last message timestamp"""
+        self.collection.document(conversation_id).update({
+            'last_message_at': firestore.SERVER_TIMESTAMP
+        })
+
+
+class MessageService:
+    """Message operations for chat"""
+
+    def __init__(self):
+        self.db = get_firestore_db()
+        self.collection = self.db.collection('messages')
+
+    def create(self, data, doc_id=None):
+        """Create a message"""
+        import uuid
+        if doc_id is None:
+            doc_id = str(uuid.uuid4())
+
+        data['created_at'] = firestore.SERVER_TIMESTAMP
+        data['is_read'] = data.get('is_read', False)
+
+        self.collection.document(doc_id).set(data)
+        return doc_id
+
+    def get_conversation_messages(self, conversation_id, limit=100):
+        """Get all messages for a conversation"""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+
+        query = self.collection.where(filter=FieldFilter('conversation_id', '==', conversation_id))
+        query = query.order_by('created_at')
+
+        if limit:
+            query = query.limit(limit)
+
+        docs = query.stream()
+        return [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+
+    def mark_as_read(self, conversation_id, user_id):
+        """Mark all messages in conversation as read for user"""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+
+        query = self.collection.where(filter=FieldFilter('conversation_id', '==', conversation_id))
+        query = query.where(filter=FieldFilter('is_read', '==', False))
+
+        batch = self.db.batch()
+        for doc in query.stream():
+            # Only mark as read if current user is not the sender
+            if doc.to_dict().get('sender_id') != user_id:
+                batch.update(doc.reference, {
+                    'is_read': True,
+                    'read_at': firestore.SERVER_TIMESTAMP
+                })
+
+        batch.commit()
+
+
+class DelivererService:
+    """Deliverer operations"""
+
+    def __init__(self):
+        self.db = get_firestore_db()
+        self.collection = self.db.collection('deliverers')
+
+    def create(self, data, doc_id=None):
+        """Create a deliverer profile"""
+        import uuid
+        if doc_id is None:
+            doc_id = str(uuid.uuid4())
+
+        data['created_at'] = firestore.SERVER_TIMESTAMP
+        data['updated_at'] = firestore.SERVER_TIMESTAMP
+
+        self.collection.document(doc_id).set(data)
+        return doc_id
+
+    def get(self, deliverer_id):
+        """Get deliverer by ID"""
+        doc = self.collection.document(deliverer_id).get()
+        if doc.exists:
+            return {**doc.to_dict(), 'id': doc.id}
+        return None
+
+    def get_by_user_id(self, user_id):
+        """Get deliverer by user_id"""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        docs = self.collection.where(filter=FieldFilter('user_id', '==', user_id)).limit(1).stream()
+        for doc in docs:
+            return {**doc.to_dict(), 'id': doc.id}
+        return None
+
+    def update(self, deliverer_id, data):
+        """Update deliverer"""
+        data['updated_at'] = firestore.SERVER_TIMESTAMP
+        self.collection.document(deliverer_id).update(data)
+        return True
+
+    def get_all_deliverers(self, is_active=None, is_available=None):
+        """Get all deliverers with optional filters"""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+
+        query = self.collection
+
+        if is_active is not None:
+            query = query.where(filter=FieldFilter('is_active', '==', is_active))
+
+        if is_available is not None:
+            query = query.where(filter=FieldFilter('is_available', '==', is_available))
+
+        docs = query.stream()
+        return [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+
+
+class DeliveryRouteService:
+    """Delivery route operations"""
+
+    def __init__(self):
+        self.db = get_firestore_db()
+        self.collection = self.db.collection('delivery_routes')
+
+    def create(self, data, doc_id=None):
+        """Create a delivery route"""
+        import uuid
+        if doc_id is None:
+            doc_id = str(uuid.uuid4())
+
+        data['created_at'] = firestore.SERVER_TIMESTAMP
+        data['updated_at'] = firestore.SERVER_TIMESTAMP
+
+        self.collection.document(doc_id).set(data)
+        return doc_id
+
+    def get(self, route_id):
+        """Get route by ID"""
+        doc = self.collection.document(route_id).get()
+        if doc.exists:
+            return {**doc.to_dict(), 'id': doc.id}
+        return None
+
+    def get_deliverer_routes(self, deliverer_id):
+        """Get all routes for a deliverer"""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        query = self.collection.where(filter=FieldFilter('deliverer_id', '==', deliverer_id))
+        query = query.order_by('created_at', direction=firestore.Query.DESCENDING)
+
+        docs = query.stream()
+        return [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+
+    def get_active_routes(self, deliverer_id=None):
+        """Get active routes, optionally filtered by deliverer"""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+
+        query = self.collection.where(filter=FieldFilter('is_active', '==', True))
+
+        if deliverer_id:
+            query = query.where(filter=FieldFilter('deliverer_id', '==', deliverer_id))
+
+        docs = query.stream()
+        return [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+
+    def update(self, route_id, data):
+        """Update route"""
+        data['updated_at'] = firestore.SERVER_TIMESTAMP
+        self.collection.document(route_id).update(data)
+        return True
+
+    def delete(self, route_id):
+        """Delete route"""
+        self.collection.document(route_id).delete()
+        return True
+
+
+class VerificationSubmissionService:
+    """Verification submission operations for admin"""
+
+    def __init__(self):
+        self.db = get_firestore_db()
+        self.collection = self.db.collection('verification_submissions')
+
+    def create(self, data, doc_id=None):
+        """Create a verification submission"""
+        import uuid
+        if doc_id is None:
+            doc_id = str(uuid.uuid4())
+
+        data['created_at'] = firestore.SERVER_TIMESTAMP
+        data['status'] = data.get('status', 'pending')
+
+        self.collection.document(doc_id).set(data)
+        return doc_id
+
+    def get(self, submission_id):
+        """Get submission by ID"""
+        doc = self.collection.document(submission_id).get()
+        if doc.exists:
+            return {**doc.to_dict(), 'id': doc.id}
+        return None
+
+    def get_pending_submissions(self):
+        """Get all pending verification submissions"""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        query = self.collection.where(filter=FieldFilter('status', '==', 'pending'))
+        query = query.order_by('created_at')
+
+        docs = query.stream()
+        return [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+
+    def update_status(self, submission_id, status, reviewed_by=None):
+        """Update verification status"""
+        update_data = {
+            'status': status,
+            'reviewed_at': firestore.SERVER_TIMESTAMP
+        }
+
+        if reviewed_by:
+            update_data['reviewed_by'] = reviewed_by
+
+        self.collection.document(submission_id).update(update_data)
+        return True
+
+
+class SellerBadgeService:
+    """Seller badge operations"""
+
+    def __init__(self):
+        self.db = get_firestore_db()
+        self.collection = self.db.collection('seller_badges')
+
+    def create(self, data, doc_id=None):
+        """Create a seller badge"""
+        import uuid
+        if doc_id is None:
+            doc_id = str(uuid.uuid4())
+
+        data['created_at'] = firestore.SERVER_TIMESTAMP
+
+        self.collection.document(doc_id).set(data)
+        return doc_id
+
+    def get_seller_badges(self, seller_id):
+        """Get all badges for a seller"""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        query = self.collection.where(filter=FieldFilter('seller_id', '==', seller_id))
+
+        docs = query.stream()
+        return [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+
+    def award_badge(self, seller_id, badge_name, badge_description=None):
+        """Award a badge to a seller"""
+        # Check if badge already exists
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        query = self.collection.where(filter=FieldFilter('seller_id', '==', seller_id))
+        query = query.where(filter=FieldFilter('badge_name', '==', badge_name))
+
+        for doc in query.stream():
+            return doc.id  # Badge already exists
+
+        # Create new badge
+        badge_data = {
+            'seller_id': seller_id,
+            'badge_name': badge_name,
+            'badge_description': badge_description or badge_name
+        }
+        return self.create(badge_data)
+
+
+class AddressService:
+    """User address operations"""
+
+    def __init__(self):
+        self.db = get_firestore_db()
+        self.collection = self.db.collection('addresses')
+
+    def create(self, data, doc_id=None):
+        """Create an address"""
+        import uuid
+        if doc_id is None:
+            doc_id = str(uuid.uuid4())
+
+        data['created_at'] = firestore.SERVER_TIMESTAMP
+        data['updated_at'] = firestore.SERVER_TIMESTAMP
+
+        self.collection.document(doc_id).set(data)
+        return doc_id
+
+    def get_user_addresses(self, user_id):
+        """Get all addresses for a user"""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        query = self.collection.where(filter=FieldFilter('user_id', '==', user_id))
+        query = query.order_by('created_at', direction=firestore.Query.DESCENDING)
+
+        docs = query.stream()
+        return [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+
+    def get(self, address_id):
+        """Get address by ID"""
+        doc = self.collection.document(address_id).get()
+        if doc.exists:
+            return {**doc.to_dict(), 'id': doc.id}
+        return None
+
+    def update(self, address_id, data):
+        """Update address"""
+        data['updated_at'] = firestore.SERVER_TIMESTAMP
+        self.collection.document(address_id).update(data)
+        return True
+
+    def delete(self, address_id):
+        """Delete address"""
+        self.collection.document(address_id).delete()
+        return True
+
+
 # Create service instances
 seller_service = SellerService()
 review_service = ReviewService()
@@ -477,6 +861,13 @@ video_service = VideoService()
 follow_service = FollowService()
 like_service = LikeService()
 delivery_tracking_service = DeliveryTrackingService()
+conversation_service = ConversationService()
+message_service = MessageService()
+deliverer_service = DelivererService()
+delivery_route_service = DeliveryRouteService()
+verification_submission_service = VerificationSubmissionService()
+seller_badge_service = SellerBadgeService()
+address_service = AddressService()
 
 
 # Export all services
@@ -498,4 +889,11 @@ __all__ = [
     'follow_service',
     'like_service',
     'delivery_tracking_service',
+    'conversation_service',
+    'message_service',
+    'deliverer_service',
+    'delivery_route_service',
+    'verification_submission_service',
+    'seller_badge_service',
+    'address_service',
 ]

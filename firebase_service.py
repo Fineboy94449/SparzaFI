@@ -121,7 +121,11 @@ class ProductService(FirebaseService):
         if category:
             filters.append(('category', '==', category))
 
-        return self.query(filters, limit=limit, order_by='created_at')
+        # Query without ordering to avoid composite index requirement
+        products = self.query(filters)
+        # Sort in Python instead of Firestore
+        products.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        return products[:limit] if limit else products
 
     def search_products(self, search_term: str, limit: int = 20) -> List[Dict]:
         """
@@ -143,7 +147,11 @@ class ProductService(FirebaseService):
 
     def get_seller_products(self, seller_id: str) -> List[Dict]:
         """Get all products for a seller"""
-        return self.query([('seller_id', '==', seller_id)], order_by='created_at')
+        # Query without ordering to avoid composite index requirement
+        products = self.query([('seller_id', '==', seller_id)])
+        # Sort in Python instead of Firestore
+        products.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        return products
 
     def increment_views(self, product_id: str):
         """Increment product view count"""
@@ -166,7 +174,11 @@ class OrderService(FirebaseService):
         if status:
             filters.append(('status', '==', status))
 
-        return self.query(filters, order_by='created_at')
+        # Query without ordering to avoid composite index requirement
+        orders = self.query(filters)
+        # Sort in Python instead of Firestore
+        orders.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        return orders
 
     def get_seller_orders(self, seller_id: str, status: Optional[str] = None) -> List[Dict]:
         """Get orders for a seller"""
@@ -175,7 +187,11 @@ class OrderService(FirebaseService):
         if status:
             filters.append(('status', '==', status))
 
-        return self.query(filters, order_by='created_at')
+        # Query without ordering to avoid composite index requirement
+        orders = self.query(filters)
+        # Sort in Python instead of Firestore
+        orders.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        return orders
 
     def update_order_status(self, order_id: str, new_status: str, updated_by: str) -> bool:
         """Update order status with history tracking"""

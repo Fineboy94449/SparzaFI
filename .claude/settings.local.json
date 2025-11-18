@@ -37,7 +37,9 @@
       "Bash(export FIREBASE_SERVICE_ACCOUNT=/home/fineboy94449/Documents/SparzaFI/firebase-service-account.json)",
       "Bash(python migrate_to_firebase.py:*)",
       "Bash(python migrate_sparzafi_to_firebase.py:*)",
-      "Bash(timeout 5 flask run:*)"
+      "Bash(timeout 5 flask run:*)",
+      "Bash(timeout:*)",
+      "Bash(python verify_migration.py:*)"
     ],
     "deny": [],
     "ask": []

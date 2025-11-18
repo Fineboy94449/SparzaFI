@@ -1,16 +1,26 @@
 """
-SparzaFi API Routes
+SparzaFi API Routes - Migrated to Firebase
 RESTful API endpoints for fintech operations and mobile applications
 """
 
-from flask import request, jsonify, session
+from flask import request, jsonify
 from functools import wraps
 import jwt
 import secrets
 from datetime import datetime, timedelta
 from . import api_bp
 from config import Config
-from database_seed import get_db_connection
+
+# Firebase imports
+from firebase_db import (
+    get_user_service,
+    transaction_service,
+    get_product_service,
+    seller_service
+)
+from firebase_config import get_firestore_db
+from google.cloud.firestore_v1.base_query import FieldFilter
+from google.cloud import firestore
 
 
 # ==================== API AUTHENTICATION ====================
@@ -77,25 +87,23 @@ def api_login():
     email = data['email']
     password = data['password']
 
-    # Import hash_password from database_seed
-    from database_seed import hash_password
+    # Import hash_password from shared utils
+    from shared.utils import hash_password
     password_hash = hash_password(password)
 
-    db = get_db_connection()
-    user = db.execute(
-        'SELECT id, email, user_type, kyc_completed, is_verified FROM users WHERE email = ? AND password_hash = ?',
-        (email, password_hash)
-    ).fetchone()
+    user_service = get_user_service()
 
-    if not user:
+    # Get user by email
+    user = user_service.get_by_email(email)
+
+    if not user or user.get('password_hash') != password_hash:
         return jsonify({'error': 'Invalid credentials'}), 401
 
     # Generate JWT token
-    token = generate_jwt_token(user['id'], user['email'], user['user_type'])
+    token = generate_jwt_token(user['id'], user['email'], user.get('user_type', 'buyer'))
 
     # Update last login
-    db.execute('UPDATE users SET last_login = ? WHERE id = ?', (datetime.now(), user['id']))
-    db.commit()
+    user_service.update(user['id'], {'last_login': firestore.SERVER_TIMESTAMP})
 
     return jsonify({
         'success': True,
@@ -103,9 +111,9 @@ def api_login():
         'user': {
             'id': user['id'],
             'email': user['email'],
-            'user_type': user['user_type'],
-            'kyc_completed': bool(user['kyc_completed']),
-            'is_verified': bool(user['is_verified'])
+            'user_type': user.get('user_type', 'buyer'),
+            'kyc_completed': bool(user.get('kyc_completed', False)),
+            'is_verified': bool(user.get('is_verified', False))
         }
     }), 200
 
@@ -128,11 +136,8 @@ def api_verify_token():
 @api_login_required
 def get_token_balance():
     """Get user's SPZ token balance"""
-    db = get_db_connection()
-    user = db.execute(
-        'SELECT token_balance, loyalty_points FROM users WHERE id = ?',
-        (request.user_id,)
-    ).fetchone()
+    user_service = get_user_service()
+    user = user_service.get(request.user_id)
 
     if not user:
         return jsonify({'error': 'User not found'}), 404
@@ -140,9 +145,9 @@ def get_token_balance():
     return jsonify({
         'success': True,
         'balance': {
-            'spz': float(user['token_balance']),
-            'zar_equivalent': float(user['token_balance']) * Config.SPZ_TO_RAND_RATE,
-            'loyalty_points': float(user['loyalty_points'])
+            'spz': float(user.get('token_balance', 0)),
+            'zar_equivalent': float(user.get('token_balance', 0)) * Config.SPZ_TO_RAND_RATE,
+            'loyalty_points': float(user.get('loyalty_points', 0))
         },
         'token_symbol': Config.TOKEN_SYMBOL,
         'token_name': Config.TOKEN_NAME,
@@ -152,7 +157,7 @@ def get_token_balance():
 
 @api_bp.route('/fintech/transfer', methods=['POST'])
 @api_login_required
-def transfer_tokens():
+def transfer_tokens_api():
     """Transfer SPZ tokens to another user"""
     data = request.get_json()
 
@@ -166,22 +171,17 @@ def transfer_tokens():
     if amount <= 0:
         return jsonify({'error': 'Amount must be positive'}), 400
 
-    db = get_db_connection()
+    user_service = get_user_service()
+    db = get_firestore_db()
 
     # Get sender balance
-    sender = db.execute(
-        'SELECT token_balance FROM users WHERE id = ?',
-        (request.user_id,)
-    ).fetchone()
+    sender = user_service.get(request.user_id)
 
-    if not sender or sender['token_balance'] < amount:
+    if not sender or sender.get('token_balance', 0) < amount:
         return jsonify({'error': 'Insufficient balance'}), 400
 
     # Get recipient
-    recipient = db.execute(
-        'SELECT id, email FROM users WHERE email = ?',
-        (recipient_email,)
-    ).fetchone()
+    recipient = user_service.get_by_email(recipient_email)
 
     if not recipient:
         return jsonify({'error': 'Recipient not found'}), 404
@@ -195,42 +195,47 @@ def transfer_tokens():
 
     try:
         # Deduct from sender
-        db.execute(
-            'UPDATE users SET token_balance = token_balance - ? WHERE id = ?',
-            (amount, request.user_id)
-        )
+        new_sender_balance = sender['token_balance'] - amount
+        user_service.update(request.user_id, {'token_balance': new_sender_balance})
 
         # Add to recipient
-        db.execute(
-            'UPDATE users SET token_balance = token_balance + ? WHERE id = ?',
-            (amount, recipient['id'])
-        )
+        new_recipient_balance = recipient.get('token_balance', 0) + amount
+        user_service.update(recipient['id'], {'token_balance': new_recipient_balance})
 
         # Record transaction
-        db.execute('''
-            INSERT INTO token_transactions
-            (from_user_id, to_user_id, amount, transaction_type, status, reference_id, notes, completed_at)
-            VALUES (?, ?, ?, 'transfer', 'completed', ?, ?, ?)
-        ''', (request.user_id, recipient['id'], amount, reference_id, notes, datetime.now()))
+        transaction_data = {
+            'from_user_id': request.user_id,
+            'to_user_id': recipient['id'],
+            'amount': amount,
+            'transaction_type': 'transfer',
+            'status': 'completed',
+            'reference_id': reference_id,
+            'notes': notes,
+            'completed_at': firestore.SERVER_TIMESTAMP
+        }
 
-        transaction_id = db.execute('SELECT last_insert_rowid()').fetchone()[0]
+        trans_ref = db.collection('token_transactions').add(transaction_data)
+        transaction_id = trans_ref[1].id
 
         # Record balance history for sender
-        db.execute('''
-            INSERT INTO token_balances_history
-            (user_id, previous_balance, new_balance, change_amount, transaction_id)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (request.user_id, sender['token_balance'], sender['token_balance'] - amount, -amount, transaction_id))
+        db.collection('token_balances_history').add({
+            'user_id': request.user_id,
+            'previous_balance': sender['token_balance'],
+            'new_balance': new_sender_balance,
+            'change_amount': -amount,
+            'transaction_id': transaction_id,
+            'created_at': firestore.SERVER_TIMESTAMP
+        })
 
         # Record balance history for recipient
-        recipient_balance = db.execute('SELECT token_balance FROM users WHERE id = ?', (recipient['id'],)).fetchone()
-        db.execute('''
-            INSERT INTO token_balances_history
-            (user_id, previous_balance, new_balance, change_amount, transaction_id)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (recipient['id'], recipient_balance['token_balance'] - amount, recipient_balance['token_balance'], amount, transaction_id))
-
-        db.commit()
+        db.collection('token_balances_history').add({
+            'user_id': recipient['id'],
+            'previous_balance': recipient.get('token_balance', 0),
+            'new_balance': new_recipient_balance,
+            'change_amount': amount,
+            'transaction_id': transaction_id,
+            'created_at': firestore.SERVER_TIMESTAMP
+        })
 
         return jsonify({
             'success': True,
@@ -244,7 +249,6 @@ def transfer_tokens():
         }), 200
 
     except Exception as e:
-        db.rollback()
         return jsonify({'error': 'Transfer failed', 'details': str(e)}), 500
 
 
@@ -266,13 +270,11 @@ def deposit_tokens():
     if amount > 10000:
         return jsonify({'error': 'Maximum deposit amount is 10,000 SPZ'}), 400
 
-    db = get_db_connection()
+    user_service = get_user_service()
+    db = get_firestore_db()
 
     # Get current balance
-    user = db.execute(
-        'SELECT token_balance FROM users WHERE id = ?',
-        (request.user_id,)
-    ).fetchone()
+    user = user_service.get(request.user_id)
 
     # Generate transaction reference
     from database_seed import generate_reference_id
@@ -280,28 +282,32 @@ def deposit_tokens():
 
     try:
         # Add to user balance
-        db.execute(
-            'UPDATE users SET token_balance = token_balance + ? WHERE id = ?',
-            (amount, request.user_id)
-        )
+        new_balance = user.get('token_balance', 0) + amount
+        user_service.update(request.user_id, {'token_balance': new_balance})
 
         # Record transaction
-        db.execute('''
-            INSERT INTO token_transactions
-            (to_user_id, amount, transaction_type, status, reference_id, payment_reference, completed_at)
-            VALUES (?, ?, 'deposit', 'completed', ?, ?, ?)
-        ''', (request.user_id, amount, reference_id, payment_reference, datetime.now()))
+        transaction_data = {
+            'to_user_id': request.user_id,
+            'amount': amount,
+            'transaction_type': 'deposit',
+            'status': 'completed',
+            'reference_id': reference_id,
+            'payment_reference': payment_reference,
+            'completed_at': firestore.SERVER_TIMESTAMP
+        }
 
-        transaction_id = db.execute('SELECT last_insert_rowid()').fetchone()[0]
+        trans_ref = db.collection('token_transactions').add(transaction_data)
+        transaction_id = trans_ref[1].id
 
         # Record balance history
-        db.execute('''
-            INSERT INTO token_balances_history
-            (user_id, previous_balance, new_balance, change_amount, transaction_id)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (request.user_id, user['token_balance'], user['token_balance'] + amount, amount, transaction_id))
-
-        db.commit()
+        db.collection('token_balances_history').add({
+            'user_id': request.user_id,
+            'previous_balance': user.get('token_balance', 0),
+            'new_balance': new_balance,
+            'change_amount': amount,
+            'transaction_id': transaction_id,
+            'created_at': firestore.SERVER_TIMESTAMP
+        })
 
         return jsonify({
             'success': True,
@@ -315,7 +321,6 @@ def deposit_tokens():
         }), 200
 
     except Exception as e:
-        db.rollback()
         return jsonify({'error': 'Deposit failed', 'details': str(e)}), 500
 
 
@@ -340,46 +345,50 @@ def withdraw_tokens():
     if amount_spz < 100:
         return jsonify({'error': 'Minimum withdrawal amount is 100 SPZ'}), 400
 
-    db = get_db_connection()
+    user_service = get_user_service()
+    db = get_firestore_db()
 
     # Check balance
-    user = db.execute(
-        'SELECT token_balance FROM users WHERE id = ?',
-        (request.user_id,)
-    ).fetchone()
+    user = user_service.get(request.user_id)
 
-    if not user or user['token_balance'] < amount_spz:
+    if not user or user.get('token_balance', 0) < amount_spz:
         return jsonify({'error': 'Insufficient balance'}), 400
 
     amount_zar = amount_spz * Config.SPZ_TO_RAND_RATE
 
     try:
         # Deduct from user balance (hold funds)
-        db.execute(
-            'UPDATE users SET token_balance = token_balance - ? WHERE id = ?',
-            (amount_spz, request.user_id)
-        )
+        new_balance = user['token_balance'] - amount_spz
+        user_service.update(request.user_id, {'token_balance': new_balance})
 
         # Create withdrawal request
-        db.execute('''
-            INSERT INTO withdrawal_requests
-            (user_id, amount_spz, amount_zar, bank_name, account_number, account_holder, status)
-            VALUES (?, ?, ?, ?, ?, ?, 'pending')
-        ''', (request.user_id, amount_spz, amount_zar, bank_name, account_number, account_holder))
+        withdrawal_data = {
+            'user_id': request.user_id,
+            'amount_spz': amount_spz,
+            'amount_zar': amount_zar,
+            'bank_name': bank_name,
+            'account_number': account_number,
+            'account_holder': account_holder,
+            'status': 'pending',
+            'created_at': firestore.SERVER_TIMESTAMP
+        }
 
-        request_id = db.execute('SELECT last_insert_rowid()').fetchone()[0]
+        withdrawal_ref = db.collection('withdrawal_requests').add(withdrawal_data)
+        request_id = withdrawal_ref[1].id
 
         # Record transaction
         from database_seed import generate_reference_id
         reference_id = generate_reference_id('WTH')
 
-        db.execute('''
-            INSERT INTO token_transactions
-            (from_user_id, amount, transaction_type, status, reference_id, notes)
-            VALUES (?, ?, 'withdrawal', 'pending', ?, ?)
-        ''', (request.user_id, amount_spz, reference_id, f'Withdrawal to {bank_name} - {account_number}'))
-
-        db.commit()
+        db.collection('token_transactions').add({
+            'from_user_id': request.user_id,
+            'amount': amount_spz,
+            'transaction_type': 'withdrawal',
+            'status': 'pending',
+            'reference_id': reference_id,
+            'notes': f'Withdrawal to {bank_name} - {account_number}',
+            'created_at': firestore.SERVER_TIMESTAMP
+        })
 
         return jsonify({
             'success': True,
@@ -396,7 +405,6 @@ def withdraw_tokens():
         }), 200
 
     except Exception as e:
-        db.rollback()
         return jsonify({'error': 'Withdrawal request failed', 'details': str(e)}), 500
 
 
@@ -408,43 +416,51 @@ def get_transactions():
     offset = request.args.get('offset', 0, type=int)
     transaction_type = request.args.get('type', None)
 
-    db = get_db_connection()
+    db = get_firestore_db()
 
-    # Build query
-    query = '''
-        SELECT
-            id, from_user_id, to_user_id, amount, transaction_type, status,
-            reference_id, payment_reference, notes, created_at, completed_at
-        FROM token_transactions
-        WHERE from_user_id = ? OR to_user_id = ?
-    '''
-    params = [request.user_id, request.user_id]
+    # Query transactions where user is sender or recipient
+    query1 = db.collection('token_transactions').where(
+        filter=FieldFilter('from_user_id', '==', request.user_id)
+    )
 
+    query2 = db.collection('token_transactions').where(
+        filter=FieldFilter('to_user_id', '==', request.user_id)
+    )
+
+    # Apply type filter if provided
     if transaction_type:
-        query += ' AND transaction_type = ?'
-        params.append(transaction_type)
+        query1 = query1.where(filter=FieldFilter('transaction_type', '==', transaction_type))
+        query2 = query2.where(filter=FieldFilter('transaction_type', '==', transaction_type))
 
-    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?'
-    params.extend([limit, offset])
+    # Get results
+    transactions = []
+    for doc in query1.stream():
+        transactions.append({**doc.to_dict(), 'id': doc.id})
+    for doc in query2.stream():
+        transactions.append({**doc.to_dict(), 'id': doc.id})
 
-    transactions = db.execute(query, params).fetchall()
+    # Sort by created_at
+    transactions.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+
+    # Apply pagination
+    paginated = transactions[offset:offset + limit]
 
     # Format transactions
     result = []
-    for txn in transactions:
-        direction = 'outgoing' if txn['from_user_id'] == request.user_id else 'incoming'
+    for txn in paginated:
+        direction = 'outgoing' if txn.get('from_user_id') == request.user_id else 'incoming'
 
         result.append({
-            'id': txn['id'],
-            'reference_id': txn['reference_id'],
-            'amount': float(txn['amount']),
-            'type': txn['transaction_type'],
-            'status': txn['status'],
+            'id': txn.get('id'),
+            'reference_id': txn.get('reference_id'),
+            'amount': float(txn.get('amount', 0)),
+            'type': txn.get('transaction_type'),
+            'status': txn.get('status'),
             'direction': direction,
-            'payment_reference': txn['payment_reference'],
-            'notes': txn['notes'],
-            'created_at': txn['created_at'],
-            'completed_at': txn['completed_at']
+            'payment_reference': txn.get('payment_reference'),
+            'notes': txn.get('notes'),
+            'created_at': txn.get('created_at'),
+            'completed_at': txn.get('completed_at')
         })
 
     return jsonify({
@@ -466,54 +482,53 @@ def get_products():
     category = request.args.get('category', None)
     search = request.args.get('search', None)
 
-    db = get_db_connection()
+    product_service = get_product_service()
 
-    query = '''
-        SELECT
-            p.id, p.name, p.description, p.category, p.price, p.original_price,
-            p.stock_count, p.images, p.avg_rating, p.total_reviews,
-            s.id as seller_id, s.name as seller_name, s.handle as seller_handle,
-            s.is_subscribed, s.verification_status
-        FROM products p
-        JOIN sellers s ON p.seller_id = s.id
-        WHERE p.is_active = 1
-    '''
-    params = []
+    # Get all active products
+    all_products = product_service.get_all()
+    active_products = [p for p in all_products if p.get('is_active', True)]
 
+    # Filter by category
     if category:
-        query += ' AND p.category = ?'
-        params.append(category)
+        active_products = [p for p in active_products if p.get('category') == category]
 
+    # Filter by search
     if search:
-        query += ' AND (p.name LIKE ? OR p.description LIKE ?)'
-        params.extend([f'%{search}%', f'%{search}%'])
+        search_lower = search.lower()
+        active_products = [
+            p for p in active_products
+            if search_lower in p.get('name', '').lower() or search_lower in p.get('description', '').lower()
+        ]
 
-    query += ' ORDER BY p.created_at DESC LIMIT ? OFFSET ?'
-    params.extend([limit, offset])
+    # Sort by created_at
+    active_products.sort(key=lambda x: x.get('created_at', ''), reverse=True)
 
-    products = db.execute(query, params).fetchall()
+    # Apply pagination
+    paginated = active_products[offset:offset + limit]
 
-    # Format products
+    # Format products with seller info
     result = []
-    for p in products:
+    for p in paginated:
+        seller = seller_service.get(p.get('seller_id')) if p.get('seller_id') else None
+
         result.append({
-            'id': p['id'],
-            'name': p['name'],
-            'description': p['description'],
-            'category': p['category'],
-            'price': float(p['price']),
-            'original_price': float(p['original_price']) if p['original_price'] else None,
-            'stock_count': p['stock_count'],
-            'images': eval(p['images']) if p['images'] else [],
-            'rating': float(p['avg_rating']) if p['avg_rating'] else 0,
-            'reviews_count': p['total_reviews'],
+            'id': p.get('id'),
+            'name': p.get('name'),
+            'description': p.get('description'),
+            'category': p.get('category'),
+            'price': float(p.get('price', 0)),
+            'original_price': float(p.get('original_price')) if p.get('original_price') else None,
+            'stock_count': p.get('stock_count'),
+            'images': p.get('images', []),
+            'rating': float(p.get('avg_rating', 0)),
+            'reviews_count': p.get('total_reviews', 0),
             'seller': {
-                'id': p['seller_id'],
-                'name': p['seller_name'],
-                'handle': p['seller_handle'],
-                'is_subscribed': bool(p['is_subscribed']),
-                'is_verified': p['verification_status'] == 'verified'
-            }
+                'id': seller.get('id') if seller else None,
+                'name': seller.get('name') if seller else '',
+                'handle': seller.get('handle') if seller else '',
+                'is_subscribed': bool(seller.get('is_subscribed')) if seller else False,
+                'is_verified': seller.get('verification_status') == 'verified' if seller else False
+            } if seller else None
         })
 
     return jsonify({
@@ -525,47 +540,41 @@ def get_products():
     }), 200
 
 
-@api_bp.route('/marketplace/product/<int:product_id>', methods=['GET'])
+@api_bp.route('/marketplace/product/<product_id>', methods=['GET'])
 def get_product_detail(product_id):
     """Get detailed product information"""
-    db = get_db_connection()
+    product_service = get_product_service()
 
-    product = db.execute('''
-        SELECT
-            p.*,
-            s.id as seller_id, s.name as seller_name, s.handle as seller_handle,
-            s.location as seller_location, s.avg_rating as seller_rating,
-            s.verification_status
-        FROM products p
-        JOIN sellers s ON p.seller_id = s.id
-        WHERE p.id = ? AND p.is_active = 1
-    ''', (product_id,)).fetchone()
+    product = product_service.get(product_id)
 
-    if not product:
+    if not product or not product.get('is_active', True):
         return jsonify({'error': 'Product not found'}), 404
+
+    # Get seller info
+    seller = seller_service.get(product.get('seller_id')) if product.get('seller_id') else None
 
     return jsonify({
         'success': True,
         'product': {
-            'id': product['id'],
-            'name': product['name'],
-            'description': product['description'],
-            'category': product['category'],
-            'price': float(product['price']),
-            'original_price': float(product['original_price']) if product['original_price'] else None,
-            'stock_count': product['stock_count'],
-            'sku': product['sku'],
-            'images': eval(product['images']) if product['images'] else [],
-            'rating': float(product['avg_rating']) if product['avg_rating'] else 0,
-            'reviews_count': product['total_reviews'],
+            'id': product.get('id'),
+            'name': product.get('name'),
+            'description': product.get('description'),
+            'category': product.get('category'),
+            'price': float(product.get('price', 0)),
+            'original_price': float(product.get('original_price')) if product.get('original_price') else None,
+            'stock_count': product.get('stock_count'),
+            'sku': product.get('sku'),
+            'images': product.get('images', []),
+            'rating': float(product.get('avg_rating', 0)),
+            'reviews_count': product.get('total_reviews', 0),
             'seller': {
-                'id': product['seller_id'],
-                'name': product['seller_name'],
-                'handle': product['seller_handle'],
-                'location': product['seller_location'],
-                'rating': float(product['seller_rating']) if product['seller_rating'] else 0,
-                'is_verified': product['verification_status'] == 'verified'
-            }
+                'id': seller.get('id') if seller else None,
+                'name': seller.get('name') if seller else '',
+                'handle': seller.get('handle') if seller else '',
+                'location': seller.get('location') if seller else '',
+                'rating': float(seller.get('avg_rating', 0)) if seller else 0,
+                'is_verified': seller.get('verification_status') == 'verified' if seller else False
+            } if seller else None
         }
     }), 200
 
@@ -579,4 +588,4 @@ def api_not_found(error):
 
 @api_bp.errorhandler(500)
 def api_internal_error(error):
-    return jsonify({'error': 'Internal server error', 'code': 'INTERNAL_ERROR'}), 500
+    return jsonify({'error': 'Internal server error', 'code': 'SERVER_ERROR'}), 500
