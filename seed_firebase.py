@@ -62,7 +62,7 @@ def seed_users():
     users_data = [
         {
             'email': 'admin@sparzafi.com',
-            'password': 'admin123',
+            'password': 'adminpass',
             'user_type': 'admin',
             'is_admin': True,
             'kyc_completed': True,
@@ -72,8 +72,8 @@ def seed_users():
             'referral_code': 'ADMIN2024'
         },
         {
-            'email': 'thandi@example.com',
-            'password': 'seller123',
+            'email': 'thandi@sparzafi.com',
+            'password': 'sellerpass',
             'user_type': 'seller',
             'kyc_completed': True,
             'is_verified': True,
@@ -82,54 +82,64 @@ def seed_users():
             'referral_code': 'THANDI001'
         },
         {
-            'email': 'sipho@example.com',
-            'password': 'seller123',
-            'user_type': 'seller',
-            'kyc_completed': True,
-            'is_verified': True,
-            'token_balance': 3500.0,
-            'loyalty_points': 180,
-            'referral_code': 'SIPHO002'
-        },
-        {
-            'email': 'nomsa@example.com',
-            'password': 'buyer123',
+            'email': 'buyer1@test.com',
+            'password': 'buyerpass',
             'user_type': 'buyer',
             'kyc_completed': True,
             'is_verified': True,
             'token_balance': 2000.0,
             'loyalty_points': 120,
-            'referral_code': 'NOMSA003'
+            'referral_code': 'BUYER001'
         },
         {
-            'email': 'john@example.com',
-            'password': 'buyer123',
+            'email': 'buyer2@test.com',
+            'password': 'buyerpass',
             'user_type': 'buyer',
             'kyc_completed': True,
-            'is_verified': False,
+            'is_verified': True,
             'token_balance': 1500.0,
             'loyalty_points': 80,
-            'referral_code': 'JOHN004'
+            'referral_code': 'BUYER002'
         },
         {
-            'email': 'driver1@example.com',
-            'password': 'driver123',
+            'email': 'buyer3@test.com',
+            'password': 'buyerpass',
+            'user_type': 'buyer',
+            'kyc_completed': True,
+            'is_verified': True,
+            'token_balance': 1200.0,
+            'loyalty_points': 60,
+            'referral_code': 'BUYER003'
+        },
+        {
+            'email': 'buyer4@test.com',
+            'password': 'buyerpass',
+            'user_type': 'buyer',
+            'kyc_completed': True,
+            'is_verified': True,
+            'token_balance': 1000.0,
+            'loyalty_points': 40,
+            'referral_code': 'BUYER004'
+        },
+        {
+            'email': 'sipho.driver@sparzafi.com',
+            'password': 'driverpass',
             'user_type': 'deliverer',
             'kyc_completed': True,
             'is_verified': True,
             'token_balance': 800.0,
             'loyalty_points': 50,
-            'referral_code': 'DRIVER005'
+            'referral_code': 'DRIVER001'
         },
         {
-            'email': 'driver2@example.com',
-            'password': 'driver123',
+            'email': 'thembi.driver@sparzafi.com',
+            'password': 'driverpass',
             'user_type': 'deliverer',
             'kyc_completed': True,
             'is_verified': True,
             'token_balance': 600.0,
             'loyalty_points': 40,
-            'referral_code': 'DRIVER006'
+            'referral_code': 'DRIVER002'
         }
     ]
 
@@ -146,7 +156,7 @@ def seed_users():
         try:
             user_service.create(user_data, doc_id=user_id)
             created_users.append({'id': user_id, **user_data})
-            print(f"  ✓ Created user: {user_data['email']} (password: {password if password == 'admin123' else '***'})")
+            print(f"  ✓ Created user: {user_data['email']} (password: {password if password == 'adminpass' else '***'})")
         except Exception as e:
             print(f"  ✗ Failed to create {user_data['email']}: {e}")
 
@@ -161,7 +171,7 @@ def seed_sellers(users):
 
     sellers_data = [
         {
-            'user_id': 'thandi',
+            'user_id': 'thandi',  # Still using 'thandi' as the document ID (from email split)
             'name': "Thandi's Kitchen",
             'handle': 'thandis_kitchen',
             'profile_initial': 'T',
@@ -172,19 +182,6 @@ def seed_sellers(users):
             'avg_rating': 4.8,
             'total_reviews': 45,
             'total_sales': 120
-        },
-        {
-            'user_id': 'sipho',
-            'name': "Sipho's Crafts",
-            'handle': 'siphos_crafts',
-            'profile_initial': 'S',
-            'location': 'Durban, KZN',
-            'bio': 'Handmade traditional Zulu crafts, beadwork, and home decor. Supporting local artisans.',
-            'is_verified': True,
-            'verification_status': 'verified',
-            'avg_rating': 4.6,
-            'total_reviews': 32,
-            'total_sales': 85
         }
     ]
 
@@ -206,7 +203,6 @@ def seed_products(sellers):
     product_service = get_product_service()
 
     thandi_seller = next((s for s in sellers if s['handle'] == 'thandis_kitchen'), None)
-    sipho_seller = next((s for s in sellers if s['handle'] == 'siphos_crafts'), None)
 
     products_data = [
         # Thandi's Kitchen Products
@@ -250,45 +246,30 @@ def seed_products(sellers):
             'total_reviews': 31,
             'is_active': True
         },
-        # Sipho's Crafts Products
         {
-            'seller_id': sipho_seller['id'] if sipho_seller else None,
-            'name': 'Zulu Beaded Necklace',
-            'description': 'Handcrafted traditional Zulu beaded necklace. Each piece is unique.',
-            'category': 'Crafts',
-            'price': 120.00,
-            'original_price': 150.00,
-            'stock_count': 12,
-            'sku': 'SC-ZBN-001',
-            'images': ['https://via.placeholder.com/400x300?text=Beaded+Necklace'],
+            'seller_id': thandi_seller['id'] if thandi_seller else None,
+            'name': 'Koota (Chicken Feet)',
+            'description': 'Deliciously spiced and cooked chicken feet. A South African township delicacy.',
+            'category': 'Food',
+            'price': 35.00,
+            'stock_count': 25,
+            'sku': 'TK-KT-004',
+            'images': ['https://via.placeholder.com/400x300?text=Koota'],
             'avg_rating': 4.6,
             'total_reviews': 15,
             'is_active': True
         },
         {
-            'seller_id': sipho_seller['id'] if sipho_seller else None,
-            'name': 'Wire Art Sculpture',
-            'description': 'Beautiful wire art sculpture of African wildlife. Perfect home decor.',
-            'category': 'Crafts',
-            'price': 250.00,
-            'stock_count': 8,
-            'sku': 'SC-WAS-002',
-            'images': ['https://via.placeholder.com/400x300?text=Wire+Art'],
-            'avg_rating': 4.9,
-            'total_reviews': 12,
-            'is_active': True
-        },
-        {
-            'seller_id': sipho_seller['id'] if sipho_seller else None,
-            'name': 'Woven Basket Set (3 Sizes)',
-            'description': 'Traditional woven baskets - set of 3 in different sizes. Great for storage.',
-            'category': 'Crafts',
-            'price': 180.00,
-            'stock_count': 10,
-            'sku': 'SC-WBS-003',
-            'images': ['https://via.placeholder.com/400x300?text=Woven+Baskets'],
-            'avg_rating': 4.5,
-            'total_reviews': 9,
+            'seller_id': thandi_seller['id'] if thandi_seller else None,
+            'name': 'Samp and Beans',
+            'description': 'Traditional samp and beans with beef tripe. Comfort food at its best.',
+            'category': 'Food',
+            'price': 50.00,
+            'stock_count': 18,
+            'sku': 'TK-SB-005',
+            'images': ['https://via.placeholder.com/400x300?text=Samp+and+Beans'],
+            'avg_rating': 4.8,
+            'total_reviews': 20,
             'is_active': True
         }
     ]
@@ -338,11 +319,11 @@ def seed_reviews(products, users):
             'is_verified_purchase': True
         },
         {
-            'product_id': products[3]['id'],
-            'seller_id': products[3]['seller_id'],
+            'product_id': products[2]['id'],
+            'seller_id': products[2]['seller_id'],
             'user_id': buyers[1]['id'],
             'rating': 5,
-            'review_text': 'Beautiful craftsmanship! The beadwork is stunning.',
+            'review_text': 'Love these vetkoek! Crispy outside, soft inside. Just perfect!',
             'is_verified_purchase': True
         }
     ]
@@ -366,7 +347,7 @@ def seed_deliverers(users):
 
     deliverers_data = [
         {
-            'user_id': 'driver1',
+            'user_id': 'sipho',  # From sipho.driver@sparzafi.com
             'license_number': 'DL123456789',
             'vehicle_type': 'motorcycle',
             'vehicle_registration': 'ABC 123 GP',
@@ -381,7 +362,7 @@ def seed_deliverers(users):
             'service_areas': 'Soweto, Johannesburg CBD, Sandton'
         },
         {
-            'user_id': 'driver2',
+            'user_id': 'thembi',  # From thembi.driver@sparzafi.com
             'license_number': 'DL987654321',
             'vehicle_type': 'car',
             'vehicle_registration': 'XYZ 789 GP',
@@ -465,8 +446,8 @@ def seed_conversations(users):
     print("\n💬 Creating conversations and messages...")
 
     # Create a conversation between buyer and seller
-    buyer = next((u for u in users if u['email'] == 'nomsa@example.com'), None)
-    seller = next((u for u in users if u['email'] == 'thandi@example.com'), None)
+    buyer = next((u for u in users if u['email'] == 'buyer1@test.com'), None)
+    seller = next((u for u in users if u['email'] == 'thandi@sparzafi.com'), None)
 
     if buyer and seller:
         try:
@@ -515,7 +496,7 @@ def seed_notifications(users):
     print("\n🔔 Creating notifications...")
     notification_service = get_notification_service()
 
-    buyer = next((u for u in users if u['email'] == 'nomsa@example.com'), None)
+    buyer = next((u for u in users if u['email'] == 'buyer1@test.com'), None)
 
     if buyer:
         notifications = [
@@ -564,9 +545,16 @@ def main():
         return
 
     # Ask user if they want to clear existing data
-    response = input("\n⚠️  Clear existing Firebase data? (yes/no): ").strip().lower()
-    if response == 'yes':
+    clear_data = os.environ.get('CLEAR_DATA', '').lower()
+    if clear_data == 'yes':
         clear_firebase_data(db)
+    elif clear_data == 'no':
+        print("\n✓ Keeping existing data, adding new records...")
+    else:
+        # Interactive mode
+        response = input("\n⚠️  Clear existing Firebase data? (yes/no): ").strip().lower()
+        if response == 'yes':
+            clear_firebase_data(db)
 
     # Seed data in order
     try:
@@ -590,10 +578,10 @@ def main():
         print(f"  • Deliverers: {len(deliverers)}")
 
         print("\n🔐 Test Credentials:")
-        print("  Admin:    admin@sparzafi.com / admin123")
-        print("  Seller:   thandi@example.com / seller123")
-        print("  Buyer:    nomsa@example.com / buyer123")
-        print("  Deliverer: driver1@example.com / driver123")
+        print("  Admin:     admin@sparzafi.com / adminpass")
+        print("  Seller:    thandi@sparzafi.com / sellerpass")
+        print("  Buyer:     buyer1@test.com / buyerpass")
+        print("  Deliverer: sipho.driver@sparzafi.com / driverpass")
 
         print("\n🚀 You can now start testing your application!")
 

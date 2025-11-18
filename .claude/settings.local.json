@@ -41,7 +41,8 @@
       "Bash(timeout:*)",
       "Bash(python verify_migration.py:*)",
       "Bash(.venv/bin/python:*)",
-      "Bash(FIREBASE_SERVICE_ACCOUNT=\"./firebase-service-account.json\" .venv/bin/python:*)"
+      "Bash(FIREBASE_SERVICE_ACCOUNT=\"./firebase-service-account.json\" .venv/bin/python:*)",
+      "Bash(FIREBASE_SERVICE_ACCOUNT=\"./firebase-service-account.json\" CLEAR_DATA=no .venv/bin/python:*)"
     ],
     "deny": [],
     "ask": []
