@@ -1,0 +1,219 @@
+{% extends "explorer/base_explorer.html" %}
+
+{% block title %}Buyer Purchase History - SparzaFI{% endblock %}
+
+{% block explorer_content %}
+<!-- Header -->
+<div class="explorer-header">
+    <h1>🛒 Purchase History</h1>
+    <p class="subtitle">Track your orders and deliveries</p>
+</div>
+
+<!-- Statistics -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon">📦</div>
+        <div class="stat-value">{{ transactions|length }}</div>
+        <div class="stat-label">Total Orders</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">💵</div>
+        <div class="stat-value">
+            R{{ "%.2f"|format(transactions|map(attribute='total_amount')|sum|default(0)) }}
+        </div>
+        <div class="stat-label">Total Spent</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">✅</div>
+        <div class="stat-value">
+            {{ transactions|selectattr('status', 'in', ['COMPLETED', 'DELIVERED'])|list|length }}
+        </div>
+        <div class="stat-label">Delivered</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">🚚</div>
+        <div class="stat-value">
+            {{ transactions|selectattr('status', 'equalto', 'IN_TRANSIT')|list|length }}
+        </div>
+        <div class="stat-label">In Transit</div>
+    </div>
+</div>
+
+<!-- Search & Filter -->
+<div class="search-filter-section">
+    <h3 style="margin-bottom: 1rem;">Search & Filter</h3>
+    <form method="get" action="{{ url_for('explorer.buyer_explorer') }}" class="search-form">
+        <div class="form-group">
+            <label for="transaction_code">Transaction Code</label>
+            <input type="text"
+                   id="transaction_code"
+                   name="transaction_code"
+                   value="{{ filters.transaction_code or '' }}"
+                   placeholder="SPZ-000145-AF94B21C-20251119">
+        </div>
+
+        <div class="form-group">
+            <label for="seller_name">Seller Name</label>
+            <input type="text"
+                   id="seller_name"
+                   name="seller_name"
+                   value="{{ filters.seller_name or '' }}"
+                   placeholder="Search by seller">
+        </div>
+
+        <div class="form-group">
+            <label for="date_start">From Date</label>
+            <input type="date"
+                   id="date_start"
+                   name="date_start"
+                   value="{{ filters.date_start or '' }}">
+        </div>
+
+        <div class="form-group">
+            <label for="date_end">To Date</label>
+            <input type="date"
+                   id="date_end"
+                   name="date_end"
+                   value="{{ filters.date_end or '' }}">
+        </div>
+
+        <div class="form-group">
+            <label for="status">Status</label>
+            <select id="status" name="status" class="auto-submit">
+                <option value="">All Statuses</option>
+                {% for status in statuses %}
+                <option value="{{ status }}" {% if filters.status == status %}selected{% endif %}>
+                    {{ status }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="delivery_method">Delivery Method</label>
+            <select id="delivery_method" name="delivery_method" class="auto-submit">
+                <option value="">All Methods</option>
+                {% for method in delivery_methods %}
+                <option value="{{ method }}" {% if filters.delivery_method == method %}selected{% endif %}>
+                    {{ method|replace('_', ' ')|title }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="search-actions" style="grid-column: 1 / -1;">
+            <button type="submit" class="btn btn-primary">
+                🔍 Search
+            </button>
+            <a href="{{ url_for('explorer.buyer_explorer') }}" class="btn btn-secondary">
+                Clear Filters
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- Transactions List -->
+<div class="transactions-list">
+    <h3 style="margin-bottom: 1.5rem;">Your Orders</h3>
+
+    {% if transactions %}
+        {% for tx in transactions %}
+        <div class="transaction-item">
+            <div class="transaction-header">
+                <span class="transaction-code" data-code="{{ tx.transaction_code }}">
+                    {{ tx.transaction_code }}
+                </span>
+                <span class="transaction-status status-{{ tx.status|lower }}">
+                    {{ tx.status }}
+                </span>
+            </div>
+
+            <div class="transaction-details">
+                <div class="detail-item">
+                    <span class="detail-label">Seller</span>
+                    <span class="detail-value">
+                        <strong>{{ tx.seller_name or 'Unknown' }}</strong>
+                        {% if tx.seller_handle %}
+                        <span style="color: var(--accent-color);">@{{ tx.seller_handle }}</span>
+                        {% endif %}
+                    </span>
+                </div>
+
+                <div class="detail-item">
+                    <span class="detail-label">Amount</span>
+                    <span class="detail-value amount-large">R{{ "%.2f"|format(tx.total_amount or 0) }}</span>
+                </div>
+
+                <div class="detail-item">
+                    <span class="detail-label">Payment Method</span>
+                    <span class="detail-value">
+                        <span class="badge">🪙 {{ tx.payment_method or 'N/A' }}</span>
+                    </span>
+                </div>
+
+                <div class="detail-item">
+                    <span class="detail-label">Delivery</span>
+                    <span class="detail-value">
+                        <span class="badge">
+                            {% if tx.delivery_method == 'public_transport' %}
+                            🚚 Driver Delivery
+                            {% else %}
+                            📦 Self Collection
+                            {% endif %}
+                        </span>
+                    </span>
+                </div>
+
+                {% if tx.driver_phone_masked %}
+                <div class="detail-item">
+                    <span class="detail-label">Driver Contact</span>
+                    <span class="detail-value" style="font-family: 'Courier New', monospace;">
+                        {{ tx.driver_phone_masked }}
+                    </span>
+                </div>
+                {% endif %}
+
+                {% if tx.delivery_code and tx.status in ['IN_TRANSIT', 'DELIVERED'] %}
+                <div class="detail-item">
+                    <span class="detail-label">Delivery Code</span>
+                    <span class="detail-value" style="font-family: 'Courier New', monospace; color: var(--accent-color); font-weight: bold;">
+                        {{ tx.delivery_code }}
+                    </span>
+                </div>
+                {% endif %}
+
+                <div class="detail-item">
+                    <span class="detail-label">Order Time</span>
+                    <span class="detail-value">
+                        {{ tx.display_timestamp or tx.timestamp }}
+                        {% if tx.timestamp_locked %}
+                        <span style="color: var(--success-color);">🔒 Verified</span>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                <a href="{{ url_for('explorer.transaction_details', transaction_id=tx.id) }}"
+                   class="btn btn-secondary"
+                   style="font-size: 0.85rem; padding: 0.5rem 1rem;">
+                    View Full Details →
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">🛍️</div>
+            <h3>No Orders Found</h3>
+            <p>{{ 'No orders match your filters' if filters else 'You haven\'t made any purchases yet' }}</p>
+            <a href="{{ url_for('marketplace.feed') }}" class="btn btn-primary" style="margin-top: 1rem;">
+                Start Shopping
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

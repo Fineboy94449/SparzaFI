@@ -67,7 +67,7 @@ def register_blueprints(app):
     
     # Marketplace
     from marketplace import marketplace_bp
-    app.register_blueprint(marketplace_bp)
+    app.register_blueprint(marketplace_bp, url_prefix='/marketplace')
     
     # Seller
     from seller import seller_bp
@@ -92,6 +92,10 @@ def register_blueprints(app):
     # Chat
     from chat import chat_bp
     app.register_blueprint(chat_bp)
+
+    # Transaction Explorer
+    from transaction_explorer_routes import explorer_bp
+    app.register_blueprint(explorer_bp)
 
 
 def register_error_handlers(app):

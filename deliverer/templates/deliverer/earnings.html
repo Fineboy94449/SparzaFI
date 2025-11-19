@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Earnings - SparzaFI{% endblock %}
+
+{% block content %}
+<div style="padding: 2rem; max-width: 1200px; margin: 0 auto;">
+    <h1 style="color: var(--accent-color); margin-bottom: 2rem;">💰 Earnings History</h1>
+
+    <div style="background: var(--card-bg); padding: 2rem; border-radius: var(--radius); margin-bottom: 2rem;">
+        <h2>Period: {{ deliverer.period or 'Month' }}</h2>
+        <p>Total Deliveries: {{ deliverer.total_deliveries or 0 }}</p>
+        <p>Total Gross: R{{ "%.2f"|format(deliverer.total_gross or 0) }}</p>
+        <p>Platform Fees: R{{ "%.2f"|format(deliverer.total_platform_fees or 0) }}</p>
+        <p>Net Earnings: R{{ "%.2f"|format(deliverer.total_net or 0) }}</p>
+    </div>
+
+    <a href="/deliverer/dashboard" class="btn btn-primary">Back to Dashboard</a>
+</div>
+{% endblock %}

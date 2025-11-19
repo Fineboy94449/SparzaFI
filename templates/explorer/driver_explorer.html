@@ -1,0 +1,248 @@
+{% extends "explorer/base_explorer.html" %}
+
+{% block title %}Driver Deliveries - SparzaFI{% endblock %}
+
+{% block explorer_content %}
+<!-- Header -->
+<div class="explorer-header">
+    <h1>🚚 Driver Dashboard</h1>
+    <p class="subtitle">Manage your deliveries and earnings</p>
+    {% if deliverer %}
+    <p style="margin-top: 1rem;">
+        <strong>Driver:</strong> {{ deliverer.vehicle_type or 'Vehicle' }}
+        <span class="badge" style="margin-left: 1rem;">
+            {% if deliverer.is_available %}
+            🟢 Available
+            {% else %}
+            🔴 Unavailable
+            {% endif %}
+        </span>
+    </p>
+    {% endif %}
+</div>
+
+<!-- Statistics -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon">📦</div>
+        <div class="stat-value">{{ transactions|length }}</div>
+        <div class="stat-label">Total Deliveries</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">💰</div>
+        <div class="stat-value">
+            R{{ "%.2f"|format(transactions|map(attribute='driver_earnings')|sum|default(0)) }}
+        </div>
+        <div class="stat-label">Total Earnings</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">✅</div>
+        <div class="stat-value">
+            {{ transactions|selectattr('status', 'in', ['COMPLETED', 'DELIVERED'])|list|length }}
+        </div>
+        <div class="stat-label">Completed</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">🚀</div>
+        <div class="stat-value">
+            {{ transactions|selectattr('status', 'in', ['PICKED_UP', 'IN_TRANSIT'])|list|length }}
+        </div>
+        <div class="stat-label">Active</div>
+    </div>
+</div>
+
+<!-- Search & Filter -->
+<div class="search-filter-section">
+    <h3 style="margin-bottom: 1rem;">Search & Filter</h3>
+    <form method="get" action="{{ url_for('explorer.driver_explorer') }}" class="search-form">
+        <div class="form-group">
+            <label for="transaction_code">Transaction Code</label>
+            <input type="text"
+                   id="transaction_code"
+                   name="transaction_code"
+                   value="{{ filters.transaction_code or '' }}"
+                   placeholder="SPZ-000145-AF94B21C-20251119">
+        </div>
+
+        <div class="form-group">
+            <label for="seller_name">Seller Name</label>
+            <input type="text"
+                   id="seller_name"
+                   name="seller_name"
+                   value="{{ filters.seller_name or '' }}"
+                   placeholder="Search by seller">
+        </div>
+
+        <div class="form-group">
+            <label for="date_start">From Date</label>
+            <input type="date"
+                   id="date_start"
+                   name="date_start"
+                   value="{{ filters.date_start or '' }}">
+        </div>
+
+        <div class="form-group">
+            <label for="date_end">To Date</label>
+            <input type="date"
+                   id="date_end"
+                   name="date_end"
+                   value="{{ filters.date_end or '' }}">
+        </div>
+
+        <div class="form-group">
+            <label for="status">Delivery Status</label>
+            <select id="status" name="status" class="auto-submit">
+                <option value="">All Statuses</option>
+                {% for status in statuses %}
+                <option value="{{ status }}" {% if filters.status == status %}selected{% endif %}>
+                    {{ status }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="search-actions" style="grid-column: 1 / -1;">
+            <button type="submit" class="btn btn-primary">
+                🔍 Search
+            </button>
+            <a href="{{ url_for('explorer.driver_explorer') }}" class="btn btn-secondary">
+                Clear Filters
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- Deliveries List -->
+<div class="transactions-list">
+    <h3 style="margin-bottom: 1.5rem;">Your Deliveries</h3>
+
+    {% if transactions %}
+        {% for tx in transactions %}
+        <div class="transaction-item">
+            <div class="transaction-header">
+                <span class="transaction-code" data-code="{{ tx.transaction_code }}">
+                    {{ tx.transaction_code }}
+                </span>
+                <span class="transaction-status status-{{ tx.status|lower }}">
+                    {{ tx.status }}
+                </span>
+            </div>
+
+            <div class="transaction-details">
+                <div class="detail-item">
+                    <span class="detail-label">📍 Pickup Location</span>
+                    <span class="detail-value">
+                        <strong>{{ tx.seller_name or 'Seller' }}</strong><br>
+                        {{ tx.pickup_location or 'Location not set' }}
+                    </span>
+                </div>
+
+                <div class="detail-item">
+                    <span class="detail-label">📌 Drop-off Location</span>
+                    <span class="detail-value">
+                        {{ tx.dropoff_address_masked or 'Address masked' }}
+                    </span>
+                </div>
+
+                <div class="detail-item">
+                    <span class="detail-label">Earnings</span>
+                    <span class="detail-value amount-large">R{{ "%.2f"|format(tx.driver_earnings or 0) }}</span>
+                </div>
+
+                {% if tx.pickup_code and tx.status in ['ASSIGNED', 'CONFIRMED'] %}
+                <div class="detail-item">
+                    <span class="detail-label">🔑 Pickup Code</span>
+                    <span class="detail-value" style="font-family: 'Courier New', monospace; color: var(--accent-color); font-weight: bold;">
+                        {{ tx.pickup_code }}
+                    </span>
+                </div>
+                {% endif %}
+
+                {% if tx.delivery_code and tx.status in ['PICKED_UP', 'IN_TRANSIT'] %}
+                <div class="detail-item">
+                    <span class="detail-label">🔑 Delivery Code</span>
+                    <span class="detail-value" style="font-family: 'Courier New', monospace; color: var(--success-color); font-weight: bold;">
+                        {{ tx.delivery_code }}
+                    </span>
+                </div>
+                {% endif %}
+
+                <div class="detail-item">
+                    <span class="detail-label">Timestamp</span>
+                    <span class="detail-value">
+                        {{ tx.display_timestamp or tx.timestamp }}
+                        {% if tx.timestamp_locked %}
+                        <span style="color: var(--success-color);">🔒 Complete</span>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+
+            {% if tx.status in ['ASSIGNED', 'CONFIRMED'] %}
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color); display: flex; gap: 1rem;">
+                <button class="btn btn-primary" onclick="verifyPickupCode('{{ tx.id }}', '{{ tx.pickup_code }}')">
+                    ✅ Verify Pickup
+                </button>
+                <a href="{{ url_for('explorer.transaction_details', transaction_id=tx.id) }}"
+                   class="btn btn-secondary">
+                    View Details →
+                </a>
+            </div>
+            {% else %}
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                <a href="{{ url_for('explorer.transaction_details', transaction_id=tx.id) }}"
+                   class="btn btn-secondary"
+                   style="font-size: 0.85rem; padding: 0.5rem 1rem;">
+                    View Full Details →
+                </a>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">🚚</div>
+            <h3>No Deliveries Found</h3>
+            <p>{{ 'No deliveries match your filters' if filters else 'You have no assigned deliveries yet' }}</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+    function verifyPickupCode(transactionId, expectedCode) {
+        const code = prompt('Enter the pickup code from the seller:');
+        if (!code) return;
+
+        if (code.toUpperCase() === expectedCode) {
+            // Code is correct - submit verification
+            fetch('/explorer/verify/pickup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `transaction_id=${transactionId}&code=${code}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Pickup verified successfully!');
+                    location.reload();
+                } else {
+                    alert('❌ ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('Error verifying pickup: ' + error);
+            });
+        } else {
+            alert('❌ Incorrect pickup code!');
+        }
+    }
+</script>
+{% endblock %}

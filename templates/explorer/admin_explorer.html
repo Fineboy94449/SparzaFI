@@ -1,0 +1,281 @@
+{% extends "explorer/base_explorer.html" %}
+
+{% block title %}Admin Transaction Explorer - SparzaFI{% endblock %}
+
+{% block explorer_content %}
+<!-- Header -->
+<div class="explorer-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;">
+    <h1 style="-webkit-text-fill-color: white; color: white;">👨‍💼 Admin Transaction Explorer</h1>
+    <p class="subtitle" style="color: rgba(255, 255, 255, 0.9);">Full access to all platform transactions</p>
+    <p style="margin-top: 1rem; color: #fbbf24; font-weight: 600;">
+        ⚡ ADMIN MODE - Unrestricted Access
+    </p>
+</div>
+
+<!-- Statistics -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon">📊</div>
+        <div class="stat-value">{{ transactions|length }}</div>
+        <div class="stat-label">Total Transactions</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">💰</div>
+        <div class="stat-value">
+            R{{ "%.2f"|format(transactions|map(attribute='total_amount')|sum|default(0)) }}
+        </div>
+        <div class="stat-label">Total Volume</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">✅</div>
+        <div class="stat-value">
+            {{ transactions|selectattr('status', 'in', ['COMPLETED', 'DELIVERED'])|list|length }}
+        </div>
+        <div class="stat-label">Completed</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">🔒</div>
+        <div class="stat-value">
+            {{ transactions|selectattr('timestamp_locked', 'equalto', true)|list|length }}
+        </div>
+        <div class="stat-label">Locked</div>
+    </div>
+</div>
+
+<!-- Advanced Search & Filter -->
+<div class="search-filter-section">
+    <h3 style="margin-bottom: 1rem;">🔍 Advanced Search (Admin)</h3>
+    <form method="get" action="{{ url_for('explorer.admin_explorer') }}" class="search-form">
+        <div class="form-group">
+            <label for="transaction_code">Transaction Code</label>
+            <input type="text"
+                   id="transaction_code"
+                   name="transaction_code"
+                   value="{{ filters.transaction_code or '' }}"
+                   placeholder="SPZ-000145-AF94B21C-20251119">
+        </div>
+
+        <div class="form-group">
+            <label for="transaction_id">Transaction ID</label>
+            <input type="text"
+                   id="transaction_id"
+                   name="transaction_id"
+                   value="{{ filters.transaction_id or '' }}"
+                   placeholder="UUID">
+        </div>
+
+        <div class="form-group">
+            <label for="buyer_id">Buyer ID</label>
+            <input type="text"
+                   id="buyer_id"
+                   name="buyer_id"
+                   value="{{ filters.buyer_id or '' }}"
+                   placeholder="user_xxx">
+        </div>
+
+        <div class="form-group">
+            <label for="seller_id">Seller ID</label>
+            <input type="text"
+                   id="seller_id"
+                   name="seller_id"
+                   value="{{ filters.seller_id or '' }}"
+                   placeholder="seller_xxx">
+        </div>
+
+        <div class="form-group">
+            <label for="driver_id">Driver ID</label>
+            <input type="text"
+                   id="driver_id"
+                   name="driver_id"
+                   value="{{ filters.driver_id or '' }}"
+                   placeholder="deliverer_xxx">
+        </div>
+
+        <div class="form-group">
+            <label for="date_start">From Date</label>
+            <input type="date"
+                   id="date_start"
+                   name="date_start"
+                   value="{{ filters.date_start or '' }}">
+        </div>
+
+        <div class="form-group">
+            <label for="date_end">To Date</label>
+            <input type="date"
+                   id="date_end"
+                   name="date_end"
+                   value="{{ filters.date_end or '' }}">
+        </div>
+
+        <div class="form-group">
+            <label for="status">Status</label>
+            <select id="status" name="status" class="auto-submit">
+                <option value="">All Statuses</option>
+                {% for status in statuses %}
+                <option value="{{ status }}" {% if filters.status == status %}selected{% endif %}>
+                    {{ status }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="payment_method">Payment Method</label>
+            <select id="payment_method" name="payment_method" class="auto-submit">
+                <option value="">All Methods</option>
+                {% for method in payment_methods %}
+                <option value="{{ method }}" {% if filters.payment_method == method %}selected{% endif %}>
+                    {{ method }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="delivery_method">Delivery Method</label>
+            <select id="delivery_method" name="delivery_method" class="auto-submit">
+                <option value="">All Methods</option>
+                {% for method in delivery_methods %}
+                <option value="{{ method }}" {% if filters.delivery_method == method %}selected{% endif %}>
+                    {{ method|replace('_', ' ')|title }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="search-actions" style="grid-column: 1 / -1;">
+            <button type="submit" class="btn btn-primary">
+                🔍 Search
+            </button>
+            <a href="{{ url_for('explorer.admin_explorer') }}" class="btn btn-secondary">
+                Clear All Filters
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- Transactions List -->
+<div class="transactions-list">
+    <h3 style="margin-bottom: 1.5rem;">All Platform Transactions</h3>
+
+    {% if transactions %}
+        {% for tx in transactions %}
+        <div class="transaction-item">
+            <div class="transaction-header">
+                <span class="transaction-code" data-code="{{ tx.transaction_code }}">
+                    {{ tx.transaction_code }}
+                </span>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <span class="transaction-status status-{{ tx.status|lower }}">
+                        {{ tx.status }}
+                    </span>
+                    {% if tx.timestamp_locked %}
+                    <span style="background: rgba(72, 187, 120, 0.2); color: var(--success-color); padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.75rem;">
+                        🔒 LOCKED
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="transaction-details">
+                <div class="detail-item">
+                    <span class="detail-label">👤 Buyer</span>
+                    <span class="detail-value">
+                        <strong>{{ tx.buyer_name or 'N/A' }}</strong><br>
+                        {{ tx.buyer_email or 'No email' }}<br>
+                        <span style="font-size: 0.85rem; color: var(--text-secondary);">{{ tx.buyer_phone or 'No phone' }}</span>
+                    </span>
+                </div>
+
+                <div class="detail-item">
+                    <span class="detail-label">🏪 Seller</span>
+                    <span class="detail-value">
+                        <strong>{{ tx.seller_name or 'N/A' }}</strong><br>
+                        {{ tx.seller_email or 'No email' }}<br>
+                        <span style="font-size: 0.85rem; color: var(--text-secondary);">{{ tx.seller_phone or 'No phone' }}</span>
+                    </span>
+                </div>
+
+                {% if tx.driver_name %}
+                <div class="detail-item">
+                    <span class="detail-label">🚚 Driver</span>
+                    <span class="detail-value">
+                        <strong>{{ tx.driver_name or 'N/A' }}</strong><br>
+                        {{ tx.driver_email or 'No email' }}<br>
+                        <span style="font-size: 0.85rem; color: var(--text-secondary);">{{ tx.driver_phone or 'No phone' }}</span>
+                    </span>
+                </div>
+                {% endif %}
+
+                <div class="detail-item">
+                    <span class="detail-label">Amount</span>
+                    <span class="detail-value amount-large">R{{ "%.2f"|format(tx.total_amount or 0) }}</span>
+                </div>
+
+                <div class="detail-item">
+                    <span class="detail-label">Payment</span>
+                    <span class="detail-value">
+                        <span class="badge">{{ tx.payment_method or 'N/A' }}</span>
+                    </span>
+                </div>
+
+                <div class="detail-item">
+                    <span class="detail-label">Delivery</span>
+                    <span class="detail-value">
+                        <span class="badge">
+                            {{ tx.delivery_method|replace('_', ' ')|title if tx.delivery_method else 'N/A' }}
+                        </span>
+                    </span>
+                </div>
+
+                <div class="detail-item">
+                    <span class="detail-label">🔑 Pickup Code</span>
+                    <span class="detail-value" style="font-family: 'Courier New', monospace; color: var(--accent-color);">
+                        {{ tx.pickup_code or 'N/A' }}
+                    </span>
+                </div>
+
+                <div class="detail-item">
+                    <span class="detail-label">🔑 Delivery Code</span>
+                    <span class="detail-value" style="font-family: 'Courier New', monospace; color: var(--success-color);">
+                        {{ tx.delivery_code or 'N/A' }}
+                    </span>
+                </div>
+
+                <div class="detail-item">
+                    <span class="detail-label">📊 Verification Logs</span>
+                    <span class="detail-value">
+                        <span class="badge">{{ tx.verification_log_count or 0 }} logs</span>
+                    </span>
+                </div>
+
+                <div class="detail-item">
+                    <span class="detail-label">Timestamp</span>
+                    <span class="detail-value">
+                        {{ tx.display_timestamp or tx.timestamp }}<br>
+                        <span style="font-size: 0.85rem;">{{ tx.timestamp_locked_display }}</span>
+                    </span>
+                </div>
+            </div>
+
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                <a href="{{ url_for('explorer.transaction_details', transaction_id=tx.id) }}"
+                   class="btn btn-primary"
+                   style="font-size: 0.85rem; padding: 0.5rem 1rem;">
+                    🔍 Full Audit View →
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <h3>No Transactions Found</h3>
+            <p>{{ 'No transactions match your filters' if filters else 'No transactions in the system yet' }}</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

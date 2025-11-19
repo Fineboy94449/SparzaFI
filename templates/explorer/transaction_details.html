@@ -1,0 +1,242 @@
+{% extends "explorer/base_explorer.html" %}
+
+{% block title %}Transaction Details - SparzaFI{% endblock %}
+
+{% block explorer_content %}
+<!-- Back Button -->
+<div style="margin-bottom: 1.5rem;">
+    <a href="javascript:history.back()" class="btn btn-secondary">
+        ← Back to Explorer
+    </a>
+</div>
+
+<!-- Header -->
+<div class="explorer-header">
+    <h1>📋 Transaction Details</h1>
+    <p class="subtitle" style="font-family: 'Courier New', monospace; font-size: 1.2rem; color: var(--accent-color);">
+        {{ transaction.transaction_code }}
+    </p>
+    <div style="margin-top: 1rem;">
+        <span class="transaction-status status-{{ transaction.status|lower }}" style="font-size: 1rem; padding: 0.5rem 1rem;">
+            {{ transaction.status }}
+        </span>
+        {% if transaction.timestamp_locked %}
+        <span style="background: rgba(72, 187, 120, 0.2); color: var(--success-color); padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.85rem; margin-left: 1rem;">
+            🔒 Timestamp Locked
+        </span>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Transaction Information -->
+<div class="transactions-list">
+    <h3 style="margin-bottom: 1.5rem;">Transaction Information</h3>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+        <!-- Basic Info Card -->
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 1.5rem;">
+            <h4 style="margin-bottom: 1rem; color: var(--accent-color);">💳 Payment Details</h4>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">Total Amount</div>
+                    <div style="font-size: 2rem; font-weight: 700; color: var(--success-color);">
+                        R{{ "%.2f"|format(transaction.total_amount or 0) }}
+                    </div>
+                </div>
+                <div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">Payment Method</div>
+                    <div><span class="badge">{{ transaction.payment_method or 'N/A' }}</span></div>
+                </div>
+                {% if transaction.delivery_fee %}
+                <div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">Delivery Fee</div>
+                    <div>R{{ "%.2f"|format(transaction.delivery_fee) }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Verification Codes Card -->
+        {% if is_admin or transaction.pickup_code or transaction.delivery_code %}
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 1.5rem;">
+            <h4 style="margin-bottom: 1rem; color: var(--accent-color);">🔑 Verification Codes</h4>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                {% if transaction.pickup_code %}
+                <div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">Pickup Code</div>
+                    <div style="font-family: 'Courier New', monospace; font-size: 1.5rem; color: var(--accent-color); font-weight: bold;">
+                        {{ transaction.pickup_code }}
+                    </div>
+                </div>
+                {% endif %}
+                {% if transaction.delivery_code %}
+                <div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">Delivery Code</div>
+                    <div style="font-family: 'Courier New', monospace; font-size: 1.5rem; color: var(--success-color); font-weight: bold;">
+                        {{ transaction.delivery_code }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Timestamps Card -->
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 1.5rem;">
+            <h4 style="margin-bottom: 1rem; color: var(--accent-color);">🕒 Timestamps</h4>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">Created At</div>
+                    <div>{{ transaction.timestamp }}</div>
+                </div>
+                {% if transaction.immutable_timestamp %}
+                <div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">
+                        Immutable Timestamp 🔒
+                    </div>
+                    <div style="color: var(--success-color); font-weight: 600;">
+                        {{ transaction.immutable_timestamp }}
+                    </div>
+                </div>
+                {% endif %}
+                {% if transaction.pickup_verified_at %}
+                <div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">Pickup Verified</div>
+                    <div>{{ transaction.pickup_verified_at }}</div>
+                </div>
+                {% endif %}
+                {% if transaction.delivery_verified_at %}
+                <div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">Delivery Verified</div>
+                    <div>{{ transaction.delivery_verified_at }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Delivery Info Card -->
+        {% if transaction.delivery_address or transaction.delivery_method %}
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 1.5rem;">
+            <h4 style="margin-bottom: 1rem; color: var(--accent-color);">🚚 Delivery Information</h4>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                {% if transaction.delivery_method %}
+                <div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">Delivery Method</div>
+                    <div><span class="badge">{{ transaction.delivery_method|replace('_', ' ')|title }}</span></div>
+                </div>
+                {% endif %}
+                {% if transaction.delivery_address %}
+                <div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">Delivery Address</div>
+                    <div>{{ transaction.delivery_address }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Integrity Hash Card -->
+        {% if is_admin and transaction.transaction_hash %}
+        <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 1.5rem;">
+            <h4 style="margin-bottom: 1rem; color: var(--accent-color);">🔐 Integrity Hash</h4>
+            <div style="word-break: break-all; font-family: 'Courier New', monospace; font-size: 0.75rem; color: var(--text-secondary);">
+                {{ transaction.transaction_hash }}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Verification Logs (Admin Only) -->
+{% if is_admin and verification_logs %}
+<div class="transactions-list" style="margin-top: 2rem;">
+    <h3 style="margin-bottom: 1.5rem;">📊 Verification Logs</h3>
+
+    {% for log in verification_logs %}
+    <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: 10px; padding: 1rem; margin-bottom: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <strong style="color: var(--accent-color);">{{ log.action }}</strong>
+            <span style="font-size: 0.85rem; color: var(--text-secondary);">
+                {{ log.timestamp_iso }}
+            </span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; font-size: 0.9rem;">
+            <div>
+                <span style="color: var(--text-secondary);">User:</span>
+                <span>{{ log.user_id }}</span>
+            </div>
+            {% if log.ip_address %}
+            <div>
+                <span style="color: var(--text-secondary);">IP:</span>
+                <span style="font-family: 'Courier New', monospace;">{{ log.ip_address }}</span>
+            </div>
+            {% endif %}
+            {% if log.details %}
+            <div>
+                <span style="color: var(--text-secondary);">Details:</span>
+                <span>{{ log.details }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Status History -->
+{% if transaction.status_history and transaction.status_history|length > 0 %}
+<div class="transactions-list" style="margin-top: 2rem;">
+    <h3 style="margin-bottom: 1.5rem;">📈 Status History</h3>
+
+    <div style="position: relative; padding-left: 2rem;">
+        <!-- Timeline Line -->
+        <div style="position: absolute; left: 0.5rem; top: 0; bottom: 0; width: 2px; background: var(--border-color);"></div>
+
+        {% for history in transaction.status_history %}
+        <div style="position: relative; margin-bottom: 1.5rem;">
+            <!-- Timeline Dot -->
+            <div style="position: absolute; left: -1.5rem; width: 12px; height: 12px; background: var(--accent-color); border-radius: 50%; border: 2px solid var(--bg-primary);"></div>
+
+            <!-- Content -->
+            <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="transaction-status status-{{ history.status|lower }}">
+                        {{ history.status }}
+                    </span>
+                    <span style="font-size: 0.85rem; color: var(--text-secondary);">
+                        {{ history.timestamp }}
+                    </span>
+                </div>
+                {% if history.updated_by %}
+                <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);">
+                    Updated by: {{ history.updated_by }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Actions -->
+<div style="margin-top: 2rem; display: flex; gap: 1rem;">
+    <a href="javascript:history.back()" class="btn btn-primary">
+        ← Back to Explorer
+    </a>
+    {% if is_admin %}
+    <button class="btn btn-secondary" onclick="printTransaction()">
+        🖨️ Print Report
+    </button>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+    function printTransaction() {
+        window.print();
+    }
+</script>
+{% endblock %}

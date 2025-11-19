@@ -1,0 +1,65 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidImageUpload() {
+      return request.resource.size < 5 * 1024 * 1024 // 5MB limit
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    function isValidVideoUpload() {
+      return request.resource.size < 50 * 1024 * 1024 // 50MB limit
+        && request.resource.contentType.matches('video/.*');
+    }
+
+    // Product images
+    match /products/{productId}/{allPaths=**} {
+      allow read: if true; // Public read for product images
+      allow write: if isAuthenticated() && isValidImageUpload();
+    }
+
+    // Seller images (profile, shop banners)
+    match /sellers/{sellerId}/{allPaths=**} {
+      allow read: if true; // Public read
+      allow write: if isAuthenticated() && isValidImageUpload();
+    }
+
+    // Seller videos (shop videos)
+    match /videos/{sellerId}/{allPaths=**} {
+      allow read: if true; // Public read
+      allow write: if isAuthenticated() && isValidVideoUpload();
+    }
+
+    // User profile images
+    match /users/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && isValidImageUpload();
+    }
+
+    // Verification documents (KYC)
+    match /verification/{userId}/{allPaths=**} {
+      allow read: if isOwner(userId); // Only owner can read their own documents
+      allow write: if isOwner(userId) && request.resource.size < 10 * 1024 * 1024; // 10MB limit
+    }
+
+    // Delivery proof images
+    match /delivery_proof/{transactionId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isValidImageUpload();
+    }
+
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Track Delivery - SparzaFI{% endblock %}
+
+{% block content %}
+<div style="padding: 2rem; max-width: 1200px; margin: 0 auto;">
+    <h1 style="color: var(--accent-color); margin-bottom: 2rem;">📍 Track Delivery</h1>
+
+    <div style="background: var(--card-bg); padding: 2rem; border-radius: var(--radius); margin-bottom: 2rem;">
+        <h2>Order #{{ transaction.id }}</h2>
+
+        <div style="margin: 2rem 0;">
+            <p><strong>Status:</strong> {{ transaction.status }}</p>
+            <p><strong>Seller:</strong> {{ transaction.seller_name or 'N/A' }}</p>
+            <p><strong>Pickup Location:</strong> {{ transaction.seller_location or 'N/A' }}</p>
+            <p><strong>Delivery Address:</strong> {{ transaction.buyer_address or 'N/A' }}</p>
+
+            {% if transaction.vehicle_type %}
+            <p><strong>Vehicle Type:</strong> {{ transaction.vehicle_type }}</p>
+            {% endif %}
+
+            {% if transaction.estimated_distance_km %}
+            <p><strong>Estimated Distance:</strong> {{ transaction.estimated_distance_km }} km</p>
+            {% endif %}
+
+            {% if transaction.estimated_time_minutes %}
+            <p><strong>Estimated Time:</strong> {{ transaction.estimated_time_minutes }} minutes</p>
+            {% endif %}
+        </div>
+
+        {% if transaction.tracking %}
+        <h3 style="margin-top: 2rem;">Tracking History</h3>
+        <div style="margin-top: 1rem;">
+            {% for track in transaction.tracking %}
+            <div style="padding: 1rem; border-left: 3px solid var(--accent-color); margin-bottom: 1rem; background: rgba(255, 122, 24, 0.05);">
+                <p><strong>{{ track.status }}</strong></p>
+                <p style="font-size: 0.875rem; color: var(--text-secondary);">{{ track.notes or '' }}</p>
+                <p style="font-size: 0.75rem; color: var(--text-secondary);">{{ track.created_at or '' }}</p>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <a href="/deliverer/dashboard" class="btn btn-primary">Back to Dashboard</a>
+</div>
+{% endblock %}

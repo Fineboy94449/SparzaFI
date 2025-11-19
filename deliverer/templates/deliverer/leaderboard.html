@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Leaderboard - SparzaFI{% endblock %}
+
+{% block content %}
+<div style="padding: 2rem; max-width: 1200px; margin: 0 auto;">
+    <h1 style="color: var(--accent-color); margin-bottom: 2rem;">🏆 Deliverer Leaderboard</h1>
+
+    <div style="background: var(--card-bg); padding: 2rem; border-radius: var(--radius);">
+        {% if leaderboard %}
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th style="padding: 1rem; text-align: left;">Rank</th>
+                    <th style="padding: 1rem; text-align: left;">Deliverer</th>
+                    <th style="padding: 1rem; text-align: left;">Deliveries</th>
+                    <th style="padding: 1rem; text-align: left;">Earnings</th>
+                    <th style="padding: 1rem; text-align: left;">Badge</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in leaderboard %}
+                <tr>
+                    <td style="padding: 1rem;">{{ entry.rank }}</td>
+                    <td style="padding: 1rem;">{{ entry.deliverer_name }}</td>
+                    <td style="padding: 1rem;">{{ entry.delivery_count }}</td>
+                    <td style="padding: 1rem;">R{{ "%.2f"|format(entry.total_earned) }}</td>
+                    <td style="padding: 1rem;">{{ entry.badge }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>No leaderboard data available for this period.</p>
+        {% endif %}
+    </div>
+
+    <a href="/deliverer/dashboard" class="btn btn-primary" style="margin-top: 2rem;">Back to Dashboard</a>
+</div>
+{% endblock %}

@@ -437,6 +437,18 @@
     <div class="profile-header">
         <div class="profile-title">🧍‍♂️ {{ deliverer.name }}</div>
         <div style="display: flex; align-items: center; gap: 1rem;">
+            <!-- KYC Verification Status -->
+            {% if deliverer.is_verified %}
+            <div style="background: rgba(34, 197, 94, 0.2); color: #22c55e; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.875rem; font-weight: 600; border: 1px solid #22c55e;">
+                ✓ KYC Verified
+            </div>
+            {% else %}
+            <a href="/deliverer/verification-status" style="background: rgba(249, 115, 22, 0.2); color: #f97316; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.875rem; font-weight: 600; border: 1px solid #f97316; text-decoration: none;">
+                ⚠ KYC Pending
+            </a>
+            {% endif %}
+
+            <!-- Availability Status -->
             <span style="color: var(--text-secondary); font-size: 0.9rem;">Status:</span>
             <label class="availability-toggle">
                 <input type="checkbox" id="availabilityToggle" {% if deliverer.is_available %}checked{% endif %}>
@@ -448,15 +460,15 @@
     <div class="profile-stats">
         <div class="profile-stat">
             <div class="profile-stat-label">Vehicle Type</div>
-            <div class="profile-stat-value">{{ deliverer.vehicle_type }}</div>
+            <div class="profile-stat-value">{{ deliverer.vehicle_type or 'Not Set' }}</div>
         </div>
         <div class="profile-stat">
             <div class="profile-stat-label">Registration</div>
-            <div class="profile-stat-value">{{ deliverer.vehicle_registration }}</div>
+            <div class="profile-stat-value">{{ deliverer.vehicle_registration or 'Not Set' }}</div>
         </div>
         <div class="profile-stat">
             <div class="profile-stat-label">Rating</div>
-            <div class="profile-stat-value rating">⭐ {{ "%.1f"|format(deliverer.rating) }}</div>
+            <div class="profile-stat-value rating">⭐ {{ "%.1f"|format(deliverer.rating or 0) }}</div>
         </div>
         <div class="profile-stat">
             <div class="profile-stat-label">Total Deliveries</div>
@@ -479,10 +491,10 @@
         <h3 style="color: var(--accent-color); font-size: 1.25rem; margin: 0;">📈 Performance Metrics</h3>
         <div style="display: flex; align-items: center; gap: 0.5rem;">
             <span style="font-size: 1.5rem; font-weight: 700; color:
-                {% if deliverer.performance_score >= 90 %}#22c55e
-                {% elif deliverer.performance_score >= 75 %}#f59e0b
+                {% if (deliverer.performance_score or 0) >= 90 %}#22c55e
+                {% elif (deliverer.performance_score or 0) >= 75 %}#f59e0b
                 {% else %}#ef4444{% endif %};">
-                {{ "%.1f"|format(deliverer.performance_score) }}
+                {{ "%.1f"|format(deliverer.performance_score or 0) }}
             </span>
             <span style="color: var(--text-secondary); font-size: 0.875rem;">/100</span>
         </div>
@@ -497,7 +509,7 @@
             </div>
             <div style="color: #22c55e; font-size: 1.75rem; font-weight: 700;">{{ "%.1f"|format(deliverer.on_time_rate) }}%</div>
             <div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.25rem;">
-                {% if deliverer.on_time_rate >= 95 %}Excellent!{% elif deliverer.on_time_rate >= 85 %}Good performance{% else %}Room for improvement{% endif %}
+                {% if (deliverer.on_time_rate or 0) >= 95 %}Excellent!{% elif deliverer.on_time_rate >= 85 %}Good performance{% else %}Room for improvement{% endif %}
             </div>
         </div>
 
@@ -533,7 +545,7 @@
             </div>
             <div style="color: #a855f7; font-size: 1.75rem; font-weight: 700;">{{ deliverer.delivery_streak }} days</div>
             <div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.25rem;">
-                {% if deliverer.delivery_streak >= 7 %}Amazing consistency!{% elif deliverer.delivery_streak >= 3 %}Keep it up!{% else %}Build your streak!{% endif %}
+                {% if (deliverer.delivery_streak or 0) >= 7 %}Amazing consistency!{% elif (deliverer.delivery_streak or 0) >= 3 %}Keep it up!{% else %}Build your streak!{% endif %}
             </div>
         </div>
     </div>
@@ -570,17 +582,17 @@
             <div style="margin-bottom: 0.5rem;">
                 <div style="display: flex; justify-content: space-between; font-size: 0.875rem; margin-bottom: 0.25rem;">
                     <span style="color: var(--text-secondary);">{{ deliverer.delivery_streak }}/7 days</span>
-                    <span style="color: #a855f7; font-weight: 600;">{% if deliverer.delivery_streak >= 7 %}Unlocked!{% else %}{{ 7 - deliverer.delivery_streak }} to go{% endif %}</span>
+                    <span style="color: #a855f7; font-weight: 600;">{% if (deliverer.delivery_streak or 0) >= 7 %}Unlocked!{% else %}{{ 7 - (deliverer.delivery_streak or 0) }} to go{% endif %}</span>
                 </div>
                 <div style="height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden;">
-                    <div style="height: 100%; background: linear-gradient(90deg, #a855f7, #ec4899); width: {{ (deliverer.delivery_streak / 7 * 100)|round }}%; transition: width 0.5s ease;"></div>
+                    <div style="height: 100%; background: linear-gradient(90deg, #a855f7, #ec4899); width: {{ ((deliverer.delivery_streak or 0) / 7 * 100)|round }}%; transition: width 0.5s ease;"></div>
                 </div>
             </div>
             <div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.5rem;">
-                {% if deliverer.delivery_streak >= 7 %}
+                {% if (deliverer.delivery_streak or 0) >= 7 %}
                     Amazing! Keep your streak alive! 🎉
                 {% else %}
-                    Complete {{ 7 - deliverer.delivery_streak }} more days to unlock
+                    Complete {{ 7 - (deliverer.delivery_streak or 0) }} more days to unlock
                 {% endif %}
             </div>
         </div>
@@ -597,14 +609,14 @@
             <div style="margin-bottom: 0.5rem;">
                 <div style="display: flex; justify-content: space-between; font-size: 0.875rem; margin-bottom: 0.25rem;">
                     <span style="color: var(--text-secondary);">{{ "%.1f"|format(deliverer.performance_score) }}/95.0 score</span>
-                    <span style="color: #22c55e; font-weight: 600;">{% if deliverer.performance_score >= 95 %}Unlocked!{% else %}{{ "%.1f"|format(95 - deliverer.performance_score) }} to go{% endif %}</span>
+                    <span style="color: #22c55e; font-weight: 600;">{% if (deliverer.performance_score or 0) >= 95 %}Unlocked!{% else %}{{ "%.1f"|format(95 - (deliverer.performance_score or 0)) }} to go{% endif %}</span>
                 </div>
                 <div style="height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden;">
-                    <div style="height: 100%; background: linear-gradient(90deg, #22c55e, #10b981); width: {{ (deliverer.performance_score / 95 * 100)|round }}%; transition: width 0.5s ease;"></div>
+                    <div style="height: 100%; background: linear-gradient(90deg, #22c55e, #10b981); width: {{ ((deliverer.performance_score or 0) / 95 * 100)|round }}%; transition: width 0.5s ease;"></div>
                 </div>
             </div>
             <div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.5rem;">
-                {% if deliverer.performance_score >= 95 %}
+                {% if (deliverer.performance_score or 0) >= 95 %}
                     Outstanding performance! 🌟
                 {% else %}
                     Maintain a 95+ performance score to unlock
@@ -624,17 +636,17 @@
             <div style="margin-bottom: 0.5rem;">
                 <div style="display: flex; justify-content: space-between; font-size: 0.875rem; margin-bottom: 0.25rem;">
                     <span style="color: var(--text-secondary);">{{ deliverer.total_deliveries }}/50 deliveries</span>
-                    <span style="color: #3b82f6; font-weight: 600;">{% if deliverer.total_deliveries >= 50 %}Unlocked!{% else %}{{ 50 - deliverer.total_deliveries }} to go{% endif %}</span>
+                    <span style="color: #3b82f6; font-weight: 600;">{% if (deliverer.total_deliveries or 0) >= 50 %}Unlocked!{% else %}{{ 50 - (deliverer.total_deliveries or 0) }} to go{% endif %}</span>
                 </div>
                 <div style="height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden;">
-                    <div style="height: 100%; background: linear-gradient(90deg, #3b82f6, #2563eb); width: {{ (deliverer.total_deliveries / 50 * 100)|round }}%; transition: width 0.5s ease;"></div>
+                    <div style="height: 100%; background: linear-gradient(90deg, #3b82f6, #2563eb); width: {{ ((deliverer.total_deliveries or 0) / 50 * 100)|round }}%; transition: width 0.5s ease;"></div>
                 </div>
             </div>
             <div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.5rem;">
-                {% if deliverer.total_deliveries >= 50 %}
+                {% if (deliverer.total_deliveries or 0) >= 50 %}
                     Incredible work! You've hit 50 deliveries! 🚀
                 {% else %}
-                    Complete {{ 50 - deliverer.total_deliveries }} more deliveries this month
+                    Complete {{ 50 - (deliverer.total_deliveries or 0) }} more deliveries this month
                 {% endif %}
             </div>
         </div>
@@ -644,31 +656,31 @@
     <div style="border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
         <h4 style="color: var(--text-primary); font-size: 1rem; margin-bottom: 1rem;">🎖️ Recent Achievements</h4>
         <div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
-            {% if deliverer.total_deliveries >= 10 %}
+            {% if (deliverer.total_deliveries or 0) >= 10 %}
             <div style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.05); padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid var(--border-color);">
                 <span style="font-size: 1.25rem;">🥉</span>
                 <span style="color: var(--text-primary); font-size: 0.875rem; font-weight: 500;">10 Deliveries</span>
             </div>
             {% endif %}
-            {% if deliverer.delivery_streak >= 3 %}
+            {% if (deliverer.delivery_streak or 0) >= 3 %}
             <div style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.05); padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid var(--border-color);">
                 <span style="font-size: 1.25rem;">🔥</span>
                 <span style="color: var(--text-primary); font-size: 0.875rem; font-weight: 500;">3-Day Streak</span>
             </div>
             {% endif %}
-            {% if deliverer.performance_score >= 90 %}
+            {% if (deliverer.performance_score or 0) >= 90 %}
             <div style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.05); padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid var(--border-color);">
                 <span style="font-size: 1.25rem;">⭐</span>
                 <span style="color: var(--text-primary); font-size: 0.875rem; font-weight: 500;">Top Performer</span>
             </div>
             {% endif %}
-            {% if deliverer.on_time_rate >= 95 %}
+            {% if (deliverer.on_time_rate or 0) >= 95 %}
             <div style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.05); padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid var(--border-color);">
                 <span style="font-size: 1.25rem;">⏱️</span>
                 <span style="color: var(--text-primary); font-size: 0.875rem; font-weight: 500;">Punctual Pro</span>
             </div>
             {% endif %}
-            {% if deliverer.total_deliveries == 0 and deliverer.delivery_streak == 0 %}
+            {% if (deliverer.total_deliveries or 0) == 0 and (deliverer.delivery_streak or 0) == 0 %}
             <div style="color: var(--text-secondary); font-size: 0.875rem; padding: 0.5rem;">
                 Complete your first delivery to start earning badges! 🎯
             </div>
@@ -871,10 +883,10 @@
                     <td>
                         {% if delivery.status == 'PICKED_UP' %}
                             <span class="status-badge status-picked-up">Picked Up</span>
-                            <button class="action-btn" style="margin-top: 0.5rem;" onclick="openVerificationModal({{ delivery.id }}, 'delivery')">Verify Delivery</button>
+                            <button class="action-btn" style="margin-top: 0.5rem;" onclick="openVerificationModal('{{ delivery.id }}', 'delivery')">Verify Delivery</button>
                         {% elif delivery.status == 'IN_TRANSIT' %}
                             <span class="status-badge status-in-transit">In Transit</span>
-                            <button class="action-btn" style="margin-top: 0.5rem;" onclick="openVerificationModal({{ delivery.id }}, 'delivery')">Verify Delivery</button>
+                            <button class="action-btn" style="margin-top: 0.5rem;" onclick="openVerificationModal('{{ delivery.id }}', 'delivery')">Verify Delivery</button>
                         {% endif %}
                     </td>
                 </tr>
@@ -924,7 +936,7 @@
                         <form method="POST" action="/deliverer/claim/{{ pickup.id }}" style="display: inline;">
                             <button type="submit" class="action-btn">Claim</button>
                         </form>
-                        <button class="action-btn" style="margin-top: 0.5rem;" onclick="openVerificationModal({{ pickup.id }}, 'pickup')">Verify Pickup</button>
+                        <button class="action-btn" style="margin-top: 0.5rem;" onclick="openVerificationModal('{{ pickup.id }}', 'pickup')">Verify Pickup</button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -947,6 +959,7 @@
                 <tr>
                     <th>Order ID</th>
                     <th>Seller</th>
+                    <th>Status</th>
                     <th>Amount Earned</th>
                     <th>Completed On</th>
                 </tr>
@@ -956,6 +969,11 @@
                 <tr>
                     <td>#{{ delivery.id }}</td>
                     <td>{{ delivery.seller_name }}</td>
+                    <td>
+                        <span class="status-badge" style="background: rgba(34, 197, 94, 0.2); color: #22c55e;">
+                            {{ delivery.status or 'DELIVERED' }}
+                        </span>
+                    </td>
                     <td>R{{ "%.2f"|format(delivery.deliverer_fee or 0) }}</td>
                     <td>{{ delivery.delivered_at or 'N/A' }}</td>
                 </tr>
@@ -1124,11 +1142,11 @@
                 label: 'Daily Earnings (R)',
                 data: [
                     {{ deliverer.today_earnings or 0 }},
-                    {{ (deliverer.today_earnings * 0.8)|round(2) }},
-                    {{ (deliverer.today_earnings * 1.2)|round(2) }},
-                    {{ (deliverer.today_earnings * 0.9)|round(2) }},
-                    {{ (deliverer.today_earnings * 1.1)|round(2) }},
-                    {{ (deliverer.today_earnings * 0.7)|round(2) }},
+                    {{ ((deliverer.today_earnings or 0) * 0.8)|round(2) }},
+                    {{ ((deliverer.today_earnings or 0) * 1.2)|round(2) }},
+                    {{ ((deliverer.today_earnings or 0) * 0.9)|round(2) }},
+                    {{ ((deliverer.today_earnings or 0) * 1.1)|round(2) }},
+                    {{ ((deliverer.today_earnings or 0) * 0.7)|round(2) }},
                     {{ deliverer.today_earnings or 0 }}
                 ],
                 borderColor: '#ff7a18',

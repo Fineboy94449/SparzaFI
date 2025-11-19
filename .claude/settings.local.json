@@ -51,7 +51,15 @@
       "Bash(export FIREBASE_SERVICE_ACCOUNT=\"./firebase-service-account.json\")",
       "Bash(export CLEAR_DATA=no)",
       "Bash(FIREBASE_SERVICE_ACCOUNT=\"./firebase-service-account.json\" timeout 10 .venv/bin/python:*)",
-      "Bash(FIREBASE_SERVICE_ACCOUNT=\"./firebase-service-account.json\" timeout 15 .venv/bin/python:*)"
+      "Bash(FIREBASE_SERVICE_ACCOUNT=\"./firebase-service-account.json\" timeout 15 .venv/bin/python:*)",
+      "Bash(FIREBASE_SERVICE_ACCOUNT=./firebase-service-account.json .venv/bin/python:*)",
+      "Bash(netstat:*)",
+      "Bash(firebase:*)",
+      "Bash(.venv/bin/pip:*)",
+      "Bash(./.venv/bin/pip install:*)",
+      "Bash(requirements.txt)",
+      "Bash(FIREBASE_SERVICE_ACCOUNT=\"./firebase-service-account.json\" timeout 120 .venv/bin/python:*)",
+      "Bash(FIREBASE_SERVICE_ACCOUNT=\"./firebase-service-account.json\" ./run_5_tests.sh:*)"
     ],
     "deny": [],
     "ask": []

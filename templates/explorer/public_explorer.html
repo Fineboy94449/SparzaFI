@@ -1,0 +1,151 @@
+{% extends "explorer/base_explorer.html" %}
+
+{% block title %}Public Transaction Explorer - SparzaFI{% endblock %}
+
+{% block explorer_content %}
+<!-- Header -->
+<div class="explorer-header">
+    <h1>🌍 Public Transaction Explorer</h1>
+    <p class="subtitle">Transparent, secure, and anonymous marketplace activity</p>
+    <p style="margin-top: 1rem; color: var(--text-secondary);">
+        🔐 All personal information is anonymized for privacy
+    </p>
+</div>
+
+<!-- Statistics -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon">📊</div>
+        <div class="stat-value">{{ stats.total_transactions }}</div>
+        <div class="stat-label">Recent Transactions</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">💰</div>
+        <div class="stat-value">R{{ "%.2f"|format(stats.total_volume) }}</div>
+        <div class="stat-label">Total Volume</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">📈</div>
+        <div class="stat-value">R{{ "%.2f"|format(stats.avg_amount) }}</div>
+        <div class="stat-label">Average Amount</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon">🔒</div>
+        <div class="stat-value">100%</div>
+        <div class="stat-label">Verified</div>
+    </div>
+</div>
+
+<!-- Info Section -->
+<div class="search-filter-section" style="background: rgba(102, 126, 234, 0.1); border-color: rgba(102, 126, 234, 0.3);">
+    <div style="display: flex; align-items: start; gap: 1rem;">
+        <span style="font-size: 2rem;">🔐</span>
+        <div>
+            <h3 style="color: #8b9eff; margin-bottom: 0.5rem;">Privacy Protected</h3>
+            <p style="color: #a5b4fc; line-height: 1.6; margin: 0;">
+                This explorer shows anonymous transaction data for transparency. No personal information,
+                addresses, or verification codes are displayed. All user IDs are hashed for privacy.
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Transactions List -->
+<div class="transactions-list">
+    <h3 style="margin-bottom: 1.5rem;">Recent Completed Transactions</h3>
+
+    {% if transactions %}
+        {% for tx in transactions %}
+        <div class="transaction-item">
+            <div class="transaction-header">
+                <span class="transaction-code" data-code="{{ tx.transaction_hash }}"
+                      style="font-size: 0.85rem;">
+                    Hash: {{ tx.transaction_hash[:16] }}...
+                </span>
+                <span class="transaction-status status-{{ tx.status|lower }}">
+                    {{ tx.status }}
+                </span>
+            </div>
+
+            <div class="transaction-details">
+                <div class="detail-item">
+                    <span class="detail-label">Buyer ID (Hashed)</span>
+                    <span class="detail-value" style="font-family: 'Courier New', monospace; color: #60a5fa;">
+                        {{ tx.buyer_id_hash }}
+                    </span>
+                </div>
+
+                <div class="detail-item">
+                    <span class="detail-label">Seller ID (Hashed)</span>
+                    <span class="detail-value" style="font-family: 'Courier New', monospace; color: #f59e0b;">
+                        {{ tx.seller_id_hash }}
+                    </span>
+                </div>
+
+                <div class="detail-item">
+                    <span class="detail-label">Amount</span>
+                    <span class="detail-value amount-large">R{{ "%.2f"|format(tx.amount or 0) }}</span>
+                </div>
+
+                <div class="detail-item">
+                    <span class="detail-label">Delivery Method</span>
+                    <span class="detail-value">
+                        <span class="badge">
+                            {% if tx.delivery_method == 'public_transport' %}
+                            🚚 Driver Delivery
+                            {% else %}
+                            📦 Collection
+                            {% endif %}
+                        </span>
+                    </span>
+                </div>
+
+                <div class="detail-item">
+                    <span class="detail-label">Timestamp</span>
+                    <span class="detail-value">
+                        {{ tx.timestamp }}
+                    </span>
+                </div>
+
+                <div class="detail-item">
+                    <span class="detail-label">Verification</span>
+                    <span class="detail-value">
+                        <span style="color: var(--success-color);">✅ Verified</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">🌐</div>
+            <h3>No Public Transactions</h3>
+            <p>Completed transactions will appear here</p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Info Footer -->
+<div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 1.5rem; margin-top: 2rem; text-align: center;">
+    <h4 style="margin-bottom: 0.5rem;">About This Explorer</h4>
+    <p style="color: var(--text-secondary); line-height: 1.6;">
+        SparzaFI provides public transaction transparency while protecting user privacy.
+        All transactions shown here are completed and verified on the platform.
+        Personal information, delivery addresses, and verification codes are never displayed publicly.
+    </p>
+    <div style="margin-top: 1rem; display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap;">
+        <div>
+            <strong style="color: var(--success-color);">✅</strong> Verified Transactions
+        </div>
+        <div>
+            <strong style="color: var(--success-color);">🔒</strong> Privacy Protected
+        </div>
+        <div>
+            <strong style="color: var(--success-color);">🌍</strong> Public Transparency
+        </div>
+    </div>
+</div>
+{% endblock %}

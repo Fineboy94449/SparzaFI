@@ -516,58 +516,131 @@ class ConversationService:
         for doc in query2.stream():
             conversations.append({**doc.to_dict(), 'id': doc.id})
 
+        # Also check by role-specific IDs (buyer_id, seller_id, deliverer_id)
+        query3 = self.collection.where(filter=FieldFilter('buyer_id', '==', user_id))
+        query4 = self.collection.where(filter=FieldFilter('seller_id', '==', user_id))
+        query5 = self.collection.where(filter=FieldFilter('deliverer_id', '==', user_id))
+
+        for doc in query3.stream():
+            conv_dict = {**doc.to_dict(), 'id': doc.id}
+            if conv_dict not in conversations:
+                conversations.append(conv_dict)
+        for doc in query4.stream():
+            conv_dict = {**doc.to_dict(), 'id': doc.id}
+            if conv_dict not in conversations:
+                conversations.append(conv_dict)
+        for doc in query5.stream():
+            conv_dict = {**doc.to_dict(), 'id': doc.id}
+            if conv_dict not in conversations:
+                conversations.append(conv_dict)
+
         # Sort by last_message_at
         conversations.sort(key=lambda x: x.get('last_message_at', ''), reverse=True)
         return conversations
 
-    def get_or_create_conversation(self, user1_id, user2_id):
-        """Get existing conversation or create new one"""
+    def get_or_create_conversation(self, user1_id, user2_id, transaction_id=None, chat_type='buyer_seller'):
+        """
+        Get existing conversation or create new one
+
+        Args:
+            user1_id: First user ID
+            user2_id: Second user ID
+            transaction_id: Optional transaction ID for order-specific chats
+            chat_type: Type of chat (buyer_seller, buyer_deliverer, seller_deliverer)
+        """
         from google.cloud.firestore_v1.base_query import FieldFilter
 
-        # Try to find existing conversation
+        # For transaction-based chats, find by transaction_id
+        if transaction_id:
+            query = self.collection.where(filter=FieldFilter('transaction_id', '==', transaction_id))
+            query = query.where(filter=FieldFilter('chat_type', '==', chat_type))
+
+            for doc in query.stream():
+                return {**doc.to_dict(), 'id': doc.id}
+
+        # For general chats, find by user IDs
         query = self.collection.where(filter=FieldFilter('user1_id', '==', user1_id))
         query = query.where(filter=FieldFilter('user2_id', '==', user2_id))
 
         for doc in query.stream():
-            return {**doc.to_dict(), 'id': doc.id}
+            # If no transaction_id specified, return any match
+            if not transaction_id:
+                return {**doc.to_dict(), 'id': doc.id}
 
         # Try reverse
         query = self.collection.where(filter=FieldFilter('user1_id', '==', user2_id))
         query = query.where(filter=FieldFilter('user2_id', '==', user1_id))
 
         for doc in query.stream():
-            return {**doc.to_dict(), 'id': doc.id}
+            if not transaction_id:
+                return {**doc.to_dict(), 'id': doc.id}
 
         # Create new conversation
         conversation_data = {
             'user1_id': user1_id,
-            'user2_id': user2_id
+            'user2_id': user2_id,
+            'chat_type': chat_type,
         }
+
+        if transaction_id:
+            conversation_data['transaction_id'] = transaction_id
+
         conv_id = self.create(conversation_data)
         return self.get(conv_id)
 
-    def update_last_message(self, conversation_id):
-        """Update last message timestamp"""
-        self.collection.document(conversation_id).update({
-            'last_message_at': firestore.SERVER_TIMESTAMP
-        })
+    def get_transaction_conversations(self, transaction_id):
+        """Get all conversations for a transaction"""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+
+        query = self.collection.where(filter=FieldFilter('transaction_id', '==', transaction_id))
+        docs = query.stream()
+        return [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+
+    def update_last_message(self, conversation_id, message_preview=None):
+        """Update last message timestamp and preview"""
+        update_data = {'last_message_at': firestore.SERVER_TIMESTAMP}
+
+        if message_preview:
+            # Truncate to 50 chars for preview
+            update_data['last_message'] = message_preview[:50]
+
+        self.collection.document(conversation_id).update(update_data)
 
 
 class MessageService:
-    """Message operations for chat"""
+    """
+    Message operations for chat
+
+    Supports transaction-based messaging with sender_role tracking.
+    Messages include: conversation_id, sender_id, recipient_id, sender_role,
+    transaction_id (optional), message_text, is_read, created_at
+    """
 
     def __init__(self):
         self.db = get_firestore_db()
         self.collection = self.db.collection('messages')
 
     def create(self, data, doc_id=None):
-        """Create a message"""
+        """
+        Create a message with role tracking
+
+        Args:
+            data: Message data including sender_role (buyer/seller/deliverer)
+            doc_id: Optional custom document ID
+
+        Returns:
+            Document ID
+        """
         import uuid
         if doc_id is None:
             doc_id = str(uuid.uuid4())
 
         data['created_at'] = firestore.SERVER_TIMESTAMP
         data['is_read'] = data.get('is_read', False)
+
+        # Ensure sender_role is set (defaults to 'buyer' if not provided)
+        if 'sender_role' not in data:
+            data['sender_role'] = 'buyer'
 
         self.collection.document(doc_id).set(data)
         return doc_id
@@ -589,6 +662,20 @@ class MessageService:
         # Apply limit after sorting
         return messages[:limit] if limit else messages
 
+    def get_transaction_messages(self, transaction_id, limit=100):
+        """Get all messages for a transaction (all chat types)"""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+
+        query = self.collection.where(filter=FieldFilter('transaction_id', '==', transaction_id))
+
+        docs = query.stream()
+        messages = [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+
+        # Sort by created_at
+        messages.sort(key=lambda x: x.get('created_at', ''))
+
+        return messages[:limit] if limit else messages
+
     def mark_as_read(self, conversation_id, user_id):
         """Mark all messages in conversation as read for user"""
         from google.cloud.firestore_v1.base_query import FieldFilter
@@ -606,6 +693,41 @@ class MessageService:
                 })
 
         batch.commit()
+
+    def get_unread_count(self, user_id):
+        """Get count of unread messages for a user"""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+
+        query = self.collection.where(filter=FieldFilter('recipient_id', '==', user_id))
+        query = query.where(filter=FieldFilter('is_read', '==', False))
+
+        docs = query.stream()
+        return sum(1 for _ in docs)
+
+    def get_messages_by_sender_role(self, conversation_id, sender_role, limit=100):
+        """
+        Get messages filtered by sender_role (buyer/seller/deliverer)
+
+        Args:
+            conversation_id: Conversation ID
+            sender_role: Role to filter by ('buyer', 'seller', 'deliverer')
+            limit: Maximum number of messages to return
+
+        Returns:
+            List of messages from the specified role
+        """
+        from google.cloud.firestore_v1.base_query import FieldFilter
+
+        query = self.collection.where(filter=FieldFilter('conversation_id', '==', conversation_id))
+        query = query.where(filter=FieldFilter('sender_role', '==', sender_role))
+
+        docs = query.stream()
+        messages = [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+
+        # Sort by created_at
+        messages.sort(key=lambda x: x.get('created_at', ''))
+
+        return messages[:limit] if limit else messages
 
 
 class DelivererService:

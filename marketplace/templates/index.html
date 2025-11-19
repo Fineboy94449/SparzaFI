@@ -1026,7 +1026,7 @@
                     <span class="like-count">{{ seller.likes_count }}</span>
                 </button>
 
-                <button class="action-btn chat-btn" onclick="openChat({{ seller.id }}, '{{ seller.name }}')">
+                <button class="action-btn chat-btn" onclick="openChat('{{ seller.handle }}', '{{ seller.name }}')">
                     💬 Chat
                 </button>
 
@@ -1306,15 +1306,15 @@ async function toggleLike(sellerId, button) {
 }
 
 // Open Chat
-function openChat(sellerId, sellerName) {
+function openChat(sellerHandle, sellerName) {
     {% if not current_user %}
     alert('Please log in to chat with sellers');
     window.location.href = '{{ url_for("auth.login") }}';
     return;
     {% endif %}
 
-    alert(`Chat with ${sellerName} coming soon! This will open a direct message window.`);
-    // TODO: Implement chat modal or redirect to chat page
+    // Redirect to chat widget page
+    window.open(`/chat/widget/${sellerHandle}`, 'chat_' + sellerHandle, 'width=400,height=700,resizable=yes,scrollbars=yes');
 }
 
 // Pause all videos when scrolling
@@ -1360,7 +1360,7 @@ function openShopModal(button) {
     document.getElementById('shopBanner').textContent = `${sellerName}'s Shop`;
 
     // Update chat button
-    document.getElementById('shopChatBtn').onclick = () => openChat(sellerId, sellerName);
+    document.getElementById('shopChatBtn').onclick = () => openChat(handle, sellerName);
 
     // Show modal with animation
     const modal = document.getElementById('shopModal');

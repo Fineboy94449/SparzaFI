@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Pricing Settings - SparzaFI{% endblock %}
+
+{% block content %}
+<div style="padding: 2rem; max-width: 800px; margin: 0 auto;">
+    <h1 style="color: var(--accent-color); margin-bottom: 2rem;">⚙️ Pricing Settings</h1>
+
+    <div style="background: var(--card-bg); padding: 2rem; border-radius: var(--radius);">
+        <form method="POST">
+            <div style="margin-bottom: 1.5rem;">
+                <label>Price per KM (R{{ deliverer.min_price_per_km or 5 }} - R{{ deliverer.max_price_per_km or 20 }})</label>
+                <input type="number" name="price_per_km" step="0.01" value="{{ deliverer.price_per_km or 8 }}" required>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <label>Base Fee (R{{ deliverer.min_base_fee or 10 }} - R{{ deliverer.max_base_fee or 50 }})</label>
+                <input type="number" name="base_fee" step="0.01" value="{{ deliverer.base_fee or 15 }}" required>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <label>Max Delivery Distance (km)</label>
+                <input type="number" name="max_delivery_distance" step="0.1" value="{{ deliverer.max_delivery_distance_km or 50 }}" required>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <label>Service Areas</label>
+                <textarea name="service_areas" rows="3">{{ deliverer.service_areas or '' }}</textarea>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <label>
+                    <input type="checkbox" name="is_available" {% if deliverer.is_available %}checked{% endif %}>
+                    Available for deliveries
+                </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save Settings</button>
+            <a href="/deliverer/dashboard" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

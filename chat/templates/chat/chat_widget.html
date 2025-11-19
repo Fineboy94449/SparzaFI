@@ -1,0 +1,582 @@
+<!-- Chat Widget - Reusable Component for All 3 Chat Types -->
+<!-- WhatsApp/Telegram Style with AJAX Polling -->
+
+<style>
+.chat-widget {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 360px;
+    max-height: 600px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.chat-widget.minimized {
+    max-height: 60px;
+}
+
+.chat-header {
+    background: linear-gradient(135deg, #FF7A18 0%, #FF5722 100%);
+    color: white;
+    padding: 15px 20px;
+    border-radius: 12px 12px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+}
+
+.chat-header-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.chat-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+.chat-user-info h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.chat-user-info p {
+    margin: 0;
+    font-size: 12px;
+    opacity: 0.9;
+}
+
+.chat-toggle {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chat-messages {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+    background: #f5f5f5;
+    max-height: 400px;
+}
+
+.message {
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+}
+
+.message.mine {
+    align-items: flex-end;
+}
+
+.message.other {
+    align-items: flex-start;
+}
+
+.message-bubble {
+    max-width: 75%;
+    padding: 10px 14px;
+    border-radius: 18px;
+    word-wrap: break-word;
+    position: relative;
+}
+
+.message.mine .message-bubble {
+    background: #FF7A18;
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+.message.other .message-bubble {
+    background: white;
+    color: #333;
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.message-sender {
+    font-size: 11px;
+    font-weight: 600;
+    margin-bottom: 3px;
+    padding: 0 14px;
+    color: #666;
+}
+
+.message-text {
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.message-time {
+    font-size: 10px;
+    margin-top: 4px;
+    opacity: 0.7;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.message.mine .message-time {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.message.other .message-time {
+    color: #999;
+}
+
+.message-seen {
+    color: #4FC3F7;
+    font-size: 12px;
+}
+
+.chat-input-container {
+    padding: 12px;
+    background: white;
+    border-radius: 0 0 12px 12px;
+    border-top: 1px solid #eee;
+}
+
+.chat-input-wrapper {
+    display: flex;
+    gap: 8px;
+}
+
+.chat-input {
+    flex: 1;
+    border: 1px solid #ddd;
+    border-radius: 24px;
+    padding: 10px 16px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.chat-input:focus {
+    border-color: #FF7A18;
+}
+
+.chat-send-btn {
+    background: #FF7A18;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.chat-send-btn:hover {
+    background: #FF5722;
+}
+
+.chat-send-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.typing-indicator {
+    padding: 10px 14px;
+    background: white;
+    border-radius: 18px;
+    width: fit-content;
+    display: none;
+}
+
+.typing-indicator.active {
+    display: block;
+}
+
+.typing-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #999;
+    margin-right: 4px;
+    animation: typing 1.4s infinite;
+}
+
+.typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typing {
+    0%, 60%, 100% {
+        transform: translateY(0);
+    }
+    30% {
+        transform: translateY(-10px);
+    }
+}
+
+.chat-error {
+    background: #ffebee;
+    color: #c62828;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin: 10px 0;
+    display: none;
+}
+
+.chat-error.active {
+    display: block;
+}
+
+.empty-chat {
+    text-align: center;
+    padding: 40px 20px;
+    color: #999;
+}
+
+.empty-chat-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+}
+
+@media (max-width: 480px) {
+    .chat-widget {
+        width: calc(100vw - 40px);
+        bottom: 10px;
+        right: 10px;
+    }
+}
+</style>
+
+<div class="chat-widget" id="chatWidget" data-conversation-id="{{ conversation_id }}"
+     data-recipient-id="{{ recipient_id }}"
+     data-transaction-id="{{ transaction_id }}"
+     data-chat-type="{{ chat_type }}">
+
+    <!-- Chat Header -->
+    <div class="chat-header" onclick="toggleChat()">
+        <div class="chat-header-info">
+            <div class="chat-avatar">
+                {{ recipient_name[0]|upper if recipient_name else '?' }}
+            </div>
+            <div class="chat-user-info">
+                <h4>{{ recipient_name or 'Chat' }}</h4>
+                <p>{{ recipient_role|capitalize if recipient_role else 'Online' }}</p>
+            </div>
+        </div>
+        <button class="chat-toggle" id="chatToggle">−</button>
+    </div>
+
+    <!-- Chat Messages -->
+    <div class="chat-messages" id="chatMessages">
+        <div class="empty-chat" id="emptyChat">
+            <div class="empty-chat-icon">💬</div>
+            <p>No messages yet. Start the conversation!</p>
+        </div>
+    </div>
+
+    <!-- Error Message -->
+    <div class="chat-error" id="chatError"></div>
+
+    <!-- Chat Input -->
+    <div class="chat-input-container">
+        <div class="chat-input-wrapper">
+            <input type="text"
+                   class="chat-input"
+                   id="chatInput"
+                   placeholder="Type a message..."
+                   maxlength="1000"
+                   onkeypress="if(event.key==='Enter') sendMessage()">
+            <button class="chat-send-btn" id="chatSendBtn" onclick="sendMessage()">
+                ➤
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Chat Widget JavaScript with AJAX Polling
+const ChatWidget = {
+    conversationId: null,
+    recipientId: null,
+    transactionId: null,
+    chatType: 'buyer_seller',
+    pollingInterval: null,
+    lastMessageId: null,
+    isMinimized: false,
+
+    init() {
+        const widget = document.getElementById('chatWidget');
+        if (!widget) return;
+
+        this.conversationId = widget.dataset.conversationId;
+        this.recipientId = widget.dataset.recipientId;
+        this.transactionId = widget.dataset.transactionId;
+        this.chatType = widget.dataset.chatType || 'buyer_seller';
+
+        // Load initial messages
+        this.loadMessages();
+
+        // Start polling for new messages (every 3 seconds)
+        this.startPolling();
+
+        // Focus input on load
+        document.getElementById('chatInput').focus();
+    },
+
+    async loadMessages() {
+        if (!this.conversationId) {
+            // If no conversation exists yet, show empty state
+            return;
+        }
+
+        try {
+            const response = await fetch(`/chat/history/${this.conversationId}`);
+            if (!response.ok) throw new Error('Failed to load messages');
+
+            const data = await response.json();
+            this.renderMessages(data.messages);
+
+            // Mark messages as read
+            await this.markAsRead();
+        } catch (error) {
+            console.error('Error loading messages:', error);
+        }
+    },
+
+    renderMessages(messages) {
+        const container = document.getElementById('chatMessages');
+        const emptyState = document.getElementById('emptyChat');
+
+        if (!messages || messages.length === 0) {
+            emptyState.style.display = 'block';
+            return;
+        }
+
+        emptyState.style.display = 'none';
+        container.innerHTML = '';
+
+        messages.forEach(msg => {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${msg.is_mine ? 'mine' : 'other'}`;
+
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = 'message-bubble';
+
+            // Add sender name for other's messages
+            if (!msg.is_mine) {
+                const senderDiv = document.createElement('div');
+                senderDiv.className = 'message-sender';
+                senderDiv.textContent = msg.sender_name;
+                messageDiv.appendChild(senderDiv);
+            }
+
+            const textDiv = document.createElement('div');
+            textDiv.className = 'message-text';
+            textDiv.textContent = msg.message;
+            bubbleDiv.appendChild(textDiv);
+
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'message-time';
+            timeDiv.textContent = this.formatTime(msg.timestamp);
+
+            // Add "seen" indicator for own messages
+            if (msg.is_mine && msg.is_read) {
+                const seenSpan = document.createElement('span');
+                seenSpan.className = 'message-seen';
+                seenSpan.textContent = '✓✓';
+                timeDiv.appendChild(seenSpan);
+            }
+
+            bubbleDiv.appendChild(timeDiv);
+            messageDiv.appendChild(bubbleDiv);
+            container.appendChild(messageDiv);
+
+            // Store last message ID
+            this.lastMessageId = msg.id;
+        });
+
+        // Scroll to bottom
+        container.scrollTop = container.scrollHeight;
+    },
+
+    async sendMessage() {
+        const input = document.getElementById('chatInput');
+        const message = input.value.trim();
+
+        if (!message) return;
+
+        // Disable send button
+        const sendBtn = document.getElementById('chatSendBtn');
+        sendBtn.disabled = true;
+
+        try {
+            const response = await fetch('/chat/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    recipient_id: this.recipientId,
+                    message: message,
+                    transaction_id: this.transactionId,
+                    chat_type: this.chatType
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                this.showError(error.error || 'Failed to send message');
+                sendBtn.disabled = false;
+                return;
+            }
+
+            const data = await response.json();
+
+            // Update conversation ID if this was first message
+            if (!this.conversationId) {
+                this.conversationId = data.conversation_id;
+            }
+
+            // Clear input
+            input.value = '';
+
+            // Reload messages
+            await this.loadMessages();
+
+        } catch (error) {
+            console.error('Error sending message:', error);
+            this.showError('Network error. Please try again.');
+        } finally {
+            sendBtn.disabled = false;
+            input.focus();
+        }
+    },
+
+    async markAsRead() {
+        if (!this.conversationId) return;
+
+        try {
+            await fetch('/chat/mark_read', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    conversation_id: this.conversationId
+                })
+            });
+        } catch (error) {
+            console.error('Error marking messages as read:', error);
+        }
+    },
+
+    startPolling() {
+        // Poll every 3 seconds for new messages
+        this.pollingInterval = setInterval(async () => {
+            if (!this.isMinimized && this.conversationId) {
+                await this.loadMessages();
+            }
+        }, 3000);
+    },
+
+    stopPolling() {
+        if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
+            this.pollingInterval = null;
+        }
+    },
+
+    formatTime(timestamp) {
+        if (!timestamp) return '';
+
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+
+        const diffHours = Math.floor(diffMins / 60);
+        if (diffHours < 24) return `${diffHours}h ago`;
+
+        // Format as time for older messages
+        const hours = date.getHours().toString().padStart(2, '0');
+        const mins = date.getMinutes().toString().padStart(2, '0');
+        return `${hours}:${mins}`;
+    },
+
+    showError(message) {
+        const errorDiv = document.getElementById('chatError');
+        errorDiv.textContent = message;
+        errorDiv.classList.add('active');
+
+        setTimeout(() => {
+            errorDiv.classList.remove('active');
+        }, 5000);
+    }
+};
+
+function toggleChat() {
+    const widget = document.getElementById('chatWidget');
+    const toggle = document.getElementById('chatToggle');
+
+    ChatWidget.isMinimized = !ChatWidget.isMinimized;
+
+    if (ChatWidget.isMinimized) {
+        widget.classList.add('minimized');
+        toggle.textContent = '+';
+        ChatWidget.stopPolling();
+    } else {
+        widget.classList.remove('minimized');
+        toggle.textContent = '−';
+        ChatWidget.startPolling();
+        ChatWidget.loadMessages();
+    }
+}
+
+function sendMessage() {
+    ChatWidget.sendMessage();
+}
+
+// Initialize chat when DOM is loaded
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => ChatWidget.init());
+} else {
+    ChatWidget.init();
+}
+
+// Clean up polling on page unload
+window.addEventListener('beforeunload', () => {
+    ChatWidget.stopPolling();
+});
+</script>

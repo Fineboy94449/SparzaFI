@@ -81,9 +81,9 @@ def setup():
 
         except Exception as e:
             flash(f'Setup failed: {str(e)}', 'error')
-            return render_template('deliverer/setup.html', error=f"Setup failed: {str(e)}")
+            return render_template('setup.html', error=f"Setup failed: {str(e)}")
 
-    return render_template('deliverer/setup.html')
+    return render_template('setup.html')
 
 
 @deliverer_bp.route('/routes', methods=['GET'])
