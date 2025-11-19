@@ -11,7 +11,7 @@ Separate explorers for:
 
 from flask import Blueprint, render_template, request, session, redirect, url_for, flash, jsonify
 from functools import wraps
-from transaction_explorer_service import get_transaction_explorer_service
+from transaction_explorer.service import get_transaction_explorer_service
 from firebase_db import seller_service, deliverer_service, get_user_service
 from datetime import datetime
 

@@ -309,6 +309,7 @@
         align-items: center;
         justify-content: center;
         gap: 0.5rem;
+        text-decoration: none;
     }
 
     .action-btn.like-btn {
@@ -956,7 +957,7 @@
                 <div class="seller-stats">
                     <button class="follow-btn {% if seller.is_following %}following{% endif %}"
                             data-seller-id="{{ seller.id }}"
-                            onclick="toggleFollow({{ seller.id }}, this)">
+                            onclick="toggleFollow('{{ seller.id }}', this)">
                         {% if seller.is_following %}Following{% else %}Follow{% endif %}
                     </button>
                     <div class="seller-followers">{{ seller.follower_count }} followers</div>
@@ -992,7 +993,7 @@
                             <div class="video-dots">
                                 {% for v in seller.videos %}
                                 <div class="video-dot {% if loop.first and video.id == v.id %}active{% endif %}"
-                                     onclick="changeVideo({{ seller.id }}, {{ loop.index0 }})"></div>
+                                     onclick="changeVideo('{{ seller.id }}', {{ loop.index0 }})"></div>
                                 {% endfor %}
                             </div>
                             <div class="video-caption">
@@ -1002,8 +1003,8 @@
                         </div>
 
                         <div class="video-nav-arrows">
-                            <button class="video-arrow" onclick="navigateVideo({{ seller.id }}, -1)">◄</button>
-                            <button class="video-arrow" onclick="navigateVideo({{ seller.id }}, 1)">►</button>
+                            <button class="video-arrow" onclick="navigateVideo('{{ seller.id }}', -1)">◄</button>
+                            <button class="video-arrow" onclick="navigateVideo('{{ seller.id }}', 1)">►</button>
                         </div>
                     </div>
                     {% endfor %}
@@ -1021,19 +1022,22 @@
             <div class="action-buttons">
                 <button class="action-btn like-btn {% if seller.is_liked %}liked{% endif %}"
                         data-seller-id="{{ seller.id }}"
-                        onclick="toggleLike({{ seller.id }}, this)">
+                        onclick="toggleLike('{{ seller.id }}', this)">
                     <span>❤️</span>
                     <span class="like-count">{{ seller.likes_count }}</span>
                 </button>
 
-                <button class="action-btn chat-btn" onclick="openChat('{{ seller.handle }}', '{{ seller.name }}')">
+                <a href="/chat/widget/{{ seller.handle }}"
+                   class="action-btn chat-btn"
+                   onclick="openChat('{{ seller.handle }}', '{{ seller.name }}'); return false;"
+                   target="_blank">
                     💬 Chat
-                </button>
+                </a>
 
                 <button class="action-btn review-btn"
                         data-seller-id="{{ seller.id }}"
                         data-seller-name="{{ seller.name|replace("'", "&#39;")|replace('"', '&quot;') }}"
-                        onclick="openReviewModal({{ seller.id }}, '{{ seller.name|replace("'", "&#39;")|replace('"', '&quot;') }}')">
+                        onclick="openReviewModal('{{ seller.id }}', '{{ seller.name|replace("'", "&#39;")|replace('"', '&quot;') }}')">
                     ⭐ Reviews
                 </button>
 
@@ -1242,7 +1246,7 @@ async function toggleFollow(sellerId, button) {
     {% endif %}
 
     try {
-        const response = await fetch(`/follow/${sellerId}`, {
+        const response = await fetch(`/marketplace/follow/${sellerId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -1280,7 +1284,7 @@ async function toggleLike(sellerId, button) {
     {% endif %}
 
     try {
-        const response = await fetch(`/like/seller/${sellerId}`, {
+        const response = await fetch(`/marketplace/like/seller/${sellerId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -1688,7 +1692,7 @@ async function submitReview(event) {
     submitBtn.textContent = 'Submitting...';
 
     try {
-        const response = await fetch('/submit-review', {
+        const response = await fetch('/marketplace/submit-review', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

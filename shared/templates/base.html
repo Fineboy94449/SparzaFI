@@ -1210,6 +1210,216 @@
     <!-- Chat Component -->
     {% include 'chat_component.html' %}
 
+    <!-- Chat JavaScript -->
+    <script>
+        {% if session.get('user') %}
+        // Chat state
+        let currentConversationId = null;
+        let currentRecipientId = null;
+        let chatPollingInterval = null;
+
+        // DOM Elements
+        const chatModal = document.getElementById('chat-modal');
+        const openChatBtn = document.getElementById('open-chat-btn');
+        const closeChatBtn = document.getElementById('close-chat');
+        const backBtn = document.getElementById('back-to-conversations');
+        const conversationsList = document.getElementById('chat-conversations-list');
+        const messagesView = document.getElementById('chat-messages-view');
+        const messagesContainer = document.getElementById('chat-messages-container');
+        const inputContainer = document.getElementById('chat-input-container');
+        const messageInput = document.getElementById('chat-message-input');
+        const sendBtn = document.getElementById('send-message-btn');
+        const chatTitle = document.getElementById('chat-title');
+        const unreadBadge = document.getElementById('chat-unread-badge');
+
+        // Open chat modal
+        openChatBtn.addEventListener('click', () => {
+            chatModal.style.display = 'flex';
+            loadConversations();
+            startPollingUnreadCount();
+        });
+
+        // Close chat modal
+        closeChatBtn.addEventListener('click', () => {
+            chatModal.style.display = 'none';
+            stopPollingUnreadCount();
+        });
+
+        // Back to conversations list
+        backBtn.addEventListener('click', () => {
+            showConversationsList();
+        });
+
+        // Send message
+        sendBtn.addEventListener('click', () => {
+            sendMessage();
+        });
+
+        // Send message on Enter key
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Load conversations
+        async function loadConversations() {
+            conversationsList.innerHTML = '<div class="chat-loading">Loading conversations...</div>';
+
+            try {
+                const response = await fetch('/chat/conversations');
+                const conversations = await response.json();
+
+                if (conversations.length === 0) {
+                    conversationsList.innerHTML = '<div class="chat-empty">No conversations yet</div>';
+                    return;
+                }
+
+                conversationsList.innerHTML = '';
+                conversations.forEach(conv => {
+                    const div = document.createElement('div');
+                    div.className = 'chat-conversation-item';
+                    div.innerHTML = `
+                        <div class="chat-conversation-email">${conv.other_user_name}</div>
+                        <div class="chat-conversation-time">${conv.last_message || 'No messages yet'}</div>
+                    `;
+                    div.addEventListener('click', () => openConversation(conv.id, conv.other_user_id, conv.other_user_name));
+                    conversationsList.appendChild(div);
+                });
+            } catch (error) {
+                conversationsList.innerHTML = '<div class="chat-empty">Error loading conversations</div>';
+                console.error('Error loading conversations:', error);
+            }
+        }
+
+        // Open conversation
+        async function openConversation(conversationId, recipientId, recipientName) {
+            currentConversationId = conversationId;
+            currentRecipientId = recipientId;
+            chatTitle.textContent = recipientName;
+
+            conversationsList.style.display = 'none';
+            messagesView.style.display = 'flex';
+            inputContainer.style.display = 'flex';
+            backBtn.style.display = 'block';
+
+            await loadMessages();
+        }
+
+        // Load messages
+        async function loadMessages() {
+            if (!currentConversationId) return;
+
+            try {
+                const response = await fetch(`/chat/history/${currentConversationId}`);
+                const data = await response.json();
+
+                messagesContainer.innerHTML = '';
+                data.messages.forEach(msg => {
+                    const div = document.createElement('div');
+                    div.className = `chat-message ${msg.is_mine ? 'chat-message-sent' : 'chat-message-received'}`;
+                    div.innerHTML = `
+                        <div class="chat-message-content">${msg.message}</div>
+                        <div class="chat-message-time">${new Date(msg.timestamp).toLocaleTimeString()}</div>
+                    `;
+                    messagesContainer.appendChild(div);
+                });
+
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            } catch (error) {
+                console.error('Error loading messages:', error);
+            }
+        }
+
+        // Send message
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message || !currentRecipientId) return;
+
+            sendBtn.disabled = true;
+            messageInput.disabled = true;
+
+            try {
+                const response = await fetch('/chat/send', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        recipient_id: currentRecipientId,
+                        message: message,
+                        conversation_id: currentConversationId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    messageInput.value = '';
+                    if (!currentConversationId) {
+                        currentConversationId = data.conversation_id;
+                    }
+                    await loadMessages();
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to send message'));
+                }
+            } catch (error) {
+                alert('Error sending message');
+                console.error('Error sending message:', error);
+            } finally {
+                sendBtn.disabled = false;
+                messageInput.disabled = false;
+                messageInput.focus();
+            }
+        }
+
+        // Show conversations list
+        function showConversationsList() {
+            conversationsList.style.display = 'block';
+            messagesView.style.display = 'none';
+            inputContainer.style.display = 'none';
+            backBtn.style.display = 'none';
+            chatTitle.textContent = 'Messages';
+            currentConversationId = null;
+            currentRecipientId = null;
+            loadConversations();
+        }
+
+        // Poll for unread count
+        function startPollingUnreadCount() {
+            updateUnreadCount();
+            chatPollingInterval = setInterval(updateUnreadCount, 30000); // Every 30 seconds
+        }
+
+        function stopPollingUnreadCount() {
+            if (chatPollingInterval) {
+                clearInterval(chatPollingInterval);
+                chatPollingInterval = null;
+            }
+        }
+
+        async function updateUnreadCount() {
+            try {
+                const response = await fetch('/chat/unread-count');
+                const data = await response.json();
+                const count = data.unread_count || 0;
+
+                if (count > 0) {
+                    unreadBadge.textContent = count;
+                    unreadBadge.style.display = 'flex';
+                } else {
+                    unreadBadge.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error fetching unread count:', error);
+            }
+        }
+
+        // Start polling unread count on page load
+        startPollingUnreadCount();
+        {% endif %}
+    </script>
+
     <!-- Main JavaScript -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 

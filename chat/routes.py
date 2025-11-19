@@ -424,20 +424,18 @@ def chat_widget(seller_handle):
 
     current_user = session['user']
 
-    # Find existing conversation between buyer and seller
-    db = get_firestore_db()
-    conversations_ref = db.collection('conversations')
+    # Get or create conversation between buyer and seller
+    conversation = conversation_service.get_or_create_conversation(
+        user1_id=current_user['id'],
+        user2_id=seller.get('user_id', seller['id']),
+        chat_type='buyer_seller'
+    )
 
-    # Try to find existing conversation
-    conversation_id = None
-    existing_convs = conversations_ref.where('buyer_id', '==', current_user['id']).where('seller_id', '==', seller['id']).limit(1).stream()
-    for conv in existing_convs:
-        conversation_id = conv.id
-        break
+    conversation_id = conversation['id'] if conversation else None
 
     return render_template('chat/chat_widget.html',
                          conversation_id=conversation_id,
-                         recipient_id=seller['id'],
+                         recipient_id=seller.get('user_id', seller['id']),
                          transaction_id=None,
                          chat_type='buyer_seller',
                          recipient_name=seller.get('name', 'Seller'),

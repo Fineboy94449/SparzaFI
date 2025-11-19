@@ -59,7 +59,16 @@
       "Bash(./.venv/bin/pip install:*)",
       "Bash(requirements.txt)",
       "Bash(FIREBASE_SERVICE_ACCOUNT=\"./firebase-service-account.json\" timeout 120 .venv/bin/python:*)",
-      "Bash(FIREBASE_SERVICE_ACCOUNT=\"./firebase-service-account.json\" ./run_5_tests.sh:*)"
+      "Bash(FIREBASE_SERVICE_ACCOUNT=\"./firebase-service-account.json\" ./run_5_tests.sh:*)",
+      "Bash(sudo npm install:*)",
+      "Bash(npx firebase:*)",
+      "Bash(mv:*)",
+      "Bash(cd:*)",
+      "Bash(flask routes:*)",
+      "Bash(FIREBASE_SERVICE_ACCOUNT=./firebase-service-account.json FLASK_APP=app.py flask routes:*)",
+      "Bash(export FIREBASE_SERVICE_ACCOUNT=./firebase-service-account.json)",
+      "Bash(FIREBASE_SERVICE_ACCOUNT=./firebase-service-account.json FLASK_APP=app.py flask run:*)",
+      "Bash(FIREBASE_SERVICE_ACCOUNT=./firebase-service-account.json FLASK_APP=app.py .venv/bin/flask run:*)"
     ],
     "deny": [],
     "ask": []

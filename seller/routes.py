@@ -577,29 +577,47 @@ def update_profile():
     user = session.get('user')
     db = get_db()
 
-    seller_id = get_seller_id(user['id'])
-    if not seller_id:
+    seller = seller_service.get_by_user_id(user['id'])
+    if not seller:
         flash('Seller profile not found.', 'danger')
         return redirect(url_for('seller.setup_profile'))
 
+    seller_id = seller['id']
     name = request.form.get('name')
     bio = request.form.get('bio')
     location = request.form.get('location')
-    # banner_image would be handled with file upload
+
+    # Handle profile image upload
+    profile_image = None
+    if 'profile_image' in request.files:
+        file = request.files['profile_image']
+        if file and file.filename:
+            # Save to static/uploads
+            import os
+            from werkzeug.utils import secure_filename
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            profile_image = f'/static/uploads/{filename}'
 
     try:
-        db.execute("""
-            UPDATE sellers
-            SET name = ?, bio = ?, location = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        """, (name, bio, location, seller_id))
+        update_data = {
+            'name': name,
+            'bio': bio,
+            'location': location
+        }
 
-        db.commit()
+        if profile_image:
+            update_data['profile_image'] = profile_image
+
+        # Update in Firebase
+        seller_ref = db.collection('sellers').document(seller_id)
+        seller_ref.update(update_data)
+
         flash('Profile updated successfully!', 'success')
         return redirect(url_for('seller.seller_dashboard'))
 
     except Exception as e:
-        db.rollback()
         log_error(f"Profile Update Error: {e}", user_id=user['id'])
         flash('Error updating profile.', 'danger')
         return redirect(url_for('seller.seller_dashboard'))

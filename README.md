@@ -18,7 +18,7 @@ flask run
 **Option 2: Quick Start Script**
 ```bash
 cd /home/fineboy94449/Documents/SparzaFI
-./run.sh
+./scripts/run.sh
 ```
 
 **Option 3: Direct Python**
@@ -41,11 +41,12 @@ source /home/fineboy94449/Documents/SparzaFI/.venv/bin/activate
 
 ## ⚙️ Core Structure
 
-- **Framework**: Flask with SQLite database and Jinja templates
-- **Database**: `sparzafi.db` (SQLite)
+- **Framework**: Flask with Firebase Firestore database and Jinja templates
+- **Database**: Firebase Firestore (Cloud NoSQL database)
 - **Environment Variables**:
   - `SECRET_KEY` - Session security
   - `GOOGLE_MAPS_API_KEY` - Delivery and live tracking features
+  - `FIREBASE_SERVICE_ACCOUNT` - Firebase service account credentials
 
 ---
 
@@ -279,103 +280,42 @@ A simulated digital currency for internal transactions.
 
 ## 📁 Project Structure
 
+SparzaFI follows a clean, modular architecture with organized directories:
+
 ```
-SparzaFI/
+SparzaFI main app/
+├── admin/              # Admin dashboard and management
+├── api/                # RESTful API endpoints
+├── auth/               # Authentication & authorization
+├── chat/               # Real-time chat system
+├── deliverer/          # Deliverer management
+├── marketplace/        # Main marketplace features
+├── seller/             # Seller dashboard and tools
+├── user/               # User account management
+├── transaction_explorer/  # Transaction analytics
+├── shared/             # Shared utilities and components
 │
-├── app.py                            # Main entry (registers all Blueprints)
-├── config.py                         # App configuration (SECRET_KEY, DB path)
-├── requirements.txt                  # Python dependencies
+├── docs/               # All documentation
+├── scripts/            # Utility and maintenance scripts
+├── tests/              # Comprehensive test suite
 │
-├── /instance/
-│   └── sparzafi.db                   # SQLite database (auto-created)
+├── static/             # CSS, JS, images, fonts
+├── templates/          # Jinja2 HTML templates
 │
-├── /auth/
-│   ├── __init__.py
-│   ├── routes.py
-│   ├── forms.py
-│   ├── utils.py
-│   └── templates/
-│       ├── auth.html
-│       ├── kyc.html
-│       ├── verify_email.html
-│       └── reset_password.html
-│
-├── /marketplace/
-│   ├── __init__.py
-│   ├── routes.py
-│   ├── utils.py
-│   └── templates/
-│       ├── index.html
-│       ├── cart.html
-│       ├── checkout.html
-│       ├── thank_you.html
-│       ├── transactions_explorer.html
-│       └── order_tracking.html
-│
-├── /seller/
-│   ├── __init__.py
-│   ├── routes.py
-│   ├── utils.py
-│   └── templates/
-│       ├── seller_dashboard.html
-│       ├── seller_detail.html
-│       ├── seller_setup.html
-│       ├── edit_product.html
-│       ├── sales_history.html
-│       └── followers.html
-│
-├── /deliverers/
-│   ├── __init__.py
-│   ├── routes.py
-│   ├── utils.py
-│   └── templates/
-│       ├── driver_dashboard.html
-│       ├── driver_earnings.html
-│       └── driver_verification.html
-│
-├── /admin/
-│   ├── __init__.py
-│   ├── routes.py
-│   ├── utils.py
-│   └── templates/
-│       ├── admin_dashboard.html
-│       ├── admin_users.html
-│       ├── admin_verification.html
-│       ├── admin_moderation.html
-│       ├── admin_messages.html
-│       ├── admin_transactions.html
-│       ├── admin_audit_logs.html
-│       ├── admin_analytics.html
-│       ├── admin_drivers.html
-│       └── admin_settings.html
-│
-├── /user/
-│   ├── __init__.py
-│   ├── routes.py
-│   ├── utils.py
-│   └── templates/
-│       ├── user_profile.html
-│       ├── user_settings.html
-│       ├── wallet.html
-│       └── referrals.html
-│
-├── /shared/
-│   ├── __init__.py
-│   ├── components.py
-│   └── templates/
-│       ├── base.html
-│       ├── header.html
-│       ├── footer.html
-│       └── components.html
-│
-└── /static/
-    ├── /css/
-    │   └── style.css
-    ├── /js/
-    │   └── main.js
-    └── /images/
-        └── logo.png
+├── app.py              # Main application entry
+├── config.py           # Configuration
+├── firebase_*.py       # Firebase integration
+└── requirements.txt    # Python dependencies
 ```
+
+**For detailed structure:** See [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+
+**Quick Links:**
+- 📖 [Documentation Index](docs/README.md)
+- 🔧 [Scripts Guide](scripts/README.md)
+- ✅ [Testing Guide](tests/README.md)
+- 🚀 [Quick Start Guide](docs/QUICK_START.md)
+- 🔥 [Firebase Setup](docs/FIREBASE_INTEGRATION_GUIDE.md)
 
 ---
 

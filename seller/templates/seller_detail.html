@@ -15,7 +15,7 @@
             </div>
             <div style="display: flex; gap: 1rem;">
                 {% if session.get('user') and session.user.get('id') != seller.user_id %}
-                <button onclick="startChatWith({{ seller.user_id }}, '{{ seller.email }}')"
+                <button onclick="startChatWith('{{ seller.user_id }}', '{{ seller.email }}')"
                         class="btn btn-outline btn-large"
                         style="min-width: 140px;">
                     💬 Contact Seller
@@ -65,15 +65,16 @@
 
 {% block extra_js %}
 <script>
+    // Follow button handler
     document.getElementById('follow-btn').addEventListener('click', async function() {
         const sellerId = this.dataset.sellerId;
-        const response = await fetch(`/follow/${sellerId}`, {
+        const response = await fetch(`/marketplace/follow/${sellerId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             }
         });
-        
+
         const data = await response.json();
 
         if (response.ok) {
@@ -90,5 +91,17 @@
             alert('Error: ' + data.error);
         }
     });
+
+    // Chat function - opens chat widget with seller
+    function startChatWith(userId, sellerEmail) {
+        {% if not current_user %}
+        alert('Please log in to chat with sellers');
+        window.location.href = '{{ url_for("auth.login") }}';
+        return;
+        {% endif %}
+
+        // Open chat widget in popup window
+        window.open(`/chat/widget/{{ seller.handle }}`, 'chat_' + userId, 'width=400,height=700,resizable=yes,scrollbars=yes');
+    }
 </script>
 {% endblock %}

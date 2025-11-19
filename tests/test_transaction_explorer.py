@@ -17,8 +17,12 @@ Tests:
 
 import os
 import sys
+
+# Add parent directory to path to import modules
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from datetime import datetime, timedelta
-from transaction_explorer_service import get_transaction_explorer_service
+from transaction_explorer.service import get_transaction_explorer_service
 from firebase_config import initialize_firebase, get_firestore_db
 from firebase_db import get_user_service, seller_service, deliverer_service
 

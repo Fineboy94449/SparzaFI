@@ -45,7 +45,28 @@ def create_app(config_name='development'):
     
     # Register blueprints
     register_blueprints(app)
-    
+
+    # Register home route
+    from flask import redirect, url_for, session
+
+    @app.route('/')
+    def home():
+        """Home page - redirect based on user status"""
+        if 'user' in session:
+            user = session.get('user')
+            # Redirect logged-in users to their dashboard
+            if user.get('user_type') == 'admin':
+                return redirect(url_for('admin.admin_dashboard_enhanced'))
+            elif user.get('user_type') == 'seller':
+                return redirect(url_for('seller.seller_dashboard'))
+            elif user.get('user_type') == 'deliverer':
+                return redirect(url_for('deliverer.dashboard'))
+            else:
+                return redirect(url_for('marketplace.feed'))
+        else:
+            # Redirect non-logged-in users to marketplace
+            return redirect(url_for('marketplace.feed'))
+
     # Register error handlers
     register_error_handlers(app)
     
@@ -94,7 +115,7 @@ def register_blueprints(app):
     app.register_blueprint(chat_bp)
 
     # Transaction Explorer
-    from transaction_explorer_routes import explorer_bp
+    from transaction_explorer.routes import explorer_bp
     app.register_blueprint(explorer_bp)
 
 
